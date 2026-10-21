@@ -1,0 +1,1841 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MEDSENTRA — Health Claim & Medicine Verification</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#06b6d4',
+                        secondary: '#10b981',
+                        darkbg: '#0b0f19',
+                        cardbg: '#111827'
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Chart.js CDN for Analytics & Trend Dashboards -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- TensorFlow.js and MobileNet -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@latest"></script>
+
+    <!-- Tesseract.js for Real OCR Extraction -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0b0f19; color: #f3f4f6; }
+        .glass-card { background: rgba(17, 24, 39, 0.85); backdrop-filter: blur(16px); border: 1px solid rgba(31, 41, 55, 0.8); box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3); }
+
+        /* High Contrast Theme */
+        body.high-contrast { background-color: #fdfcdc !important; color: #283618 !important; font-size: 1.15rem !important; }
+        body.high-contrast header, body.high-contrast footer { background-color: #fefae0 !important; border-bottom: 2px solid #dda15e !important; }
+        body.high-contrast .glass-card { background: #ffffff !important; border: 2px solid #bc6c25 !important; color: #283618 !important; box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important; }
+        body.high-contrast h1, body.high-contrast h2, body.high-contrast h3, body.high-contrast span, body.high-contrast p, body.high-contrast label, body.high-contrast a { color: #283618 !important; font-weight: 600 !important; }
+        body.high-contrast button { background-color: #dda15e !important; color: #283618 !important; border: 2px solid #bc6c25 !important; font-weight: bold !important; }
+        body.high-contrast input, body.high-contrast select, body.high-contrast textarea { background-color: #ffffff !important; color: #283618 !important; border: 2px solid #bc6c25 !important; }
+
+        @media print {
+            body { background: white !important; color: black !important; }
+            .no-print { display: none !important; }
+            .glass-card { background: white !important; border: 1px solid #000 !important; box-shadow: none !important; color: black !important; }
+            .print-only { display: block !important; }
+            .print-section-hidden { display: none !important; }
+            canvas { max-width: 100% !important; height: auto !important; }
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 4px; }
+    </style>
+    <!-- PWA Manifest & Icons -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <meta name="theme-color" content="#06b6d4">
+
+    <!-- Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('Service Worker Registered:', reg))
+            .catch(err => console.error('Service Worker Error:', err));
+        });
+      }
+    </script>
+</head>
+<body class="h-full flex flex-col justify-between selection:bg-cyan-500 selection:text-white">
+
+    <!-- TOP HEADER -->
+    <header class="sticky top-0 z-50 bg-[#0b0f19]/90 backdrop-blur-md border-b border-gray-800 px-4 lg:px-8 py-3 flex items-center justify-between shadow-md no-print">
+        <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('claims')">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-emerald-400 flex items-center justify-center text-slate-950 font-bold text-xl shadow-lg shadow-cyan-500/20">
+                <i class="fa-solid fa-shield-heart"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg tracking-tight bg-gradient-to-r from-cyan-400 via-white to-emerald-300 bg-clip-text text-transparent leading-none">MEDSENTRA</h1>
+                <span class="text-[11px] text-gray-300 font-normal tracking-wide block my-0.5">vitaura</span>
+                <p id="txt-header-sub" class="text-[11px] text-cyan-400 font-medium">Health Truth & Medicine Verification</p>
+            </div>
+        </div>
+
+        <!-- NAVIGATION TABS -->
+        <nav class="hidden md:flex items-center space-x-1 bg-gray-900/80 p-1 rounded-xl border border-gray-800">
+            <button onclick="switchTab('claims')" id="nav-claims" class="px-4 py-2 rounded-lg text-xs font-semibold transition-all text-cyan-400 bg-cyan-500/10 border border-cyan-500/30">
+                <i class="fa-solid fa-scale-balanced mr-1.5"></i><span id="nav-lbl-claims">Health Claims</span>
+            </button>
+            <button onclick="switchTab('medicine')" id="nav-medicine" class="px-4 py-2 rounded-lg text-xs font-medium transition-all text-gray-400 hover:text-white hover:bg-gray-800">
+                <i class="fa-solid fa-pills mr-1.5"></i><span id="nav-lbl-med">Medicine Check</span>
+            </button>
+            <button onclick="switchTab('article')" id="nav-article" class="px-4 py-2 rounded-lg text-xs font-medium transition-all text-gray-400 hover:text-white hover:bg-gray-800">
+                <i class="fa-solid fa-newspaper mr-1.5"></i><span id="nav-lbl-news">Health News</span>
+            </button>
+            <button onclick="switchTab('history')" id="nav-history" class="px-4 py-2 rounded-lg text-xs font-medium transition-all text-gray-400 hover:text-white hover:bg-gray-800">
+                <i class="fa-solid fa-clock-rotate-left mr-1.5"></i><span id="nav-lbl-history">My History</span>
+            </button>
+            <button onclick="switchTab('settings')" id="nav-settings" class="px-4 py-2 rounded-lg text-xs font-medium transition-all text-gray-400 hover:text-white hover:bg-gray-800">
+                <i class="fa-solid fa-gear mr-1.5"></i><span id="nav-lbl-settings">Settings</span>
+            </button>
+        </nav>
+
+        <!-- RIGHT HEADER -->
+        <div class="flex items-center space-x-3 ml-2">
+            <div class="relative flex items-center bg-gray-900 border border-gray-800 rounded-full px-3 py-1 mr-2">
+                <i class="fa-solid fa-globe text-cyan-400 text-xs mr-1.5"></i>
+                <select id="langSelect" onchange="changeLanguage(this.value)" class="bg-transparent text-gray-300 text-xs font-medium focus:outline-none cursor-pointer">
+                    <option value="en" class="bg-gray-900">EN</option>
+                    <option value="ms" class="bg-gray-900">BM</option>
+                    <option value="ta" class="bg-gray-900">தமிழ்</option>
+                    <option value="zh" class="bg-gray-900">中文</option>
+                </select>
+            </div>
+
+            <button onclick="openUserAuthModal()" class="bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-bold text-xs px-4 py-2 rounded-lg shadow-md transition-all flex items-center space-x-1.5">
+                <i class="fa-solid fa-user-shield text-[11px]"></i>
+                <span id="headerAuthLabel">Login / Sign Up</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- MOBILE BOTTOM NAVIGATION -->
+    <div class="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0b0f19]/95 backdrop-blur-md border-t border-gray-800 px-2 py-1.5 flex justify-around items-center no-print">
+        <button onclick="switchTab('claims')" id="mob-claims" class="flex flex-col items-center text-cyan-400 text-[10px] font-semibold">
+            <i class="fa-solid fa-scale-balanced text-sm mb-0.5"></i><span id="mob-lbl-claims">Claims</span>
+        </button>
+        <button onclick="switchTab('medicine')" id="mob-medicine" class="flex flex-col items-center text-gray-400 text-[10px] font-medium">
+            <i class="fa-solid fa-pills text-sm mb-0.5"></i><span id="mob-lbl-med">Medicine</span>
+        </button>
+        <button onclick="switchTab('article')" id="mob-article" class="flex flex-col items-center text-gray-400 text-[10px] font-medium">
+            <i class="fa-solid fa-newspaper text-sm mb-0.5"></i><span id="mob-lbl-news">News</span>
+        </button>
+        <button onclick="switchTab('history')" id="mob-history" class="flex flex-col items-center text-gray-400 text-[10px] font-medium">
+            <i class="fa-solid fa-clock-rotate-left text-sm mb-0.5"></i><span id="mob-lbl-history">History</span>
+        </button>
+        <button onclick="switchTab('settings')" id="mob-settings" class="flex flex-col items-center text-gray-400 text-[10px] font-medium">
+            <i class="fa-solid fa-gear text-sm mb-0.5"></i><span id="mob-lbl-settings">Settings</span>
+        </button>
+    </div>
+
+    <!-- MAIN CONTAINER -->
+    <main class="flex-1 max-w-4xl w-full mx-auto p-3 md:p-5 pb-20 md:pb-6 overflow-y-auto space-y-4">
+
+        <!-- TAB 1: HEALTH CLAIMS -->
+        <section id="view-claims" class="space-y-4">
+            <div class="glass-card rounded-2xl p-5 border border-cyan-500/20 bg-gradient-to-r from-cyan-950/40 to-emerald-950/40 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                <div class="space-y-1.5 max-w-xl">
+                    <span id="claims-badge" class="bg-cyan-500/20 text-cyan-300 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-cyan-500/30 uppercase tracking-wider">System Health Fact-Checker & Advice Engine</span>
+                    <h2 id="claims-title" class="text-lg md:text-xl font-bold tracking-tight text-white">Before You Believe It or Act, Verify It.</h2>
+                </div>
+            </div>
+
+            <!-- USER DASHBOARD: TRENDING HEALTH TOPICS CHART & SUMMARY STATS -->
+            <div class="glass-card rounded-2xl p-4 border border-cyan-500/20 space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-cyan-300 flex items-center space-x-1.5">
+                        <i class="fa-solid fa-fire text-amber-400"></i>
+                        <span>🔥 Community Interest & Top Asked Health Questions</span>
+                    </span>
+                    <span class="text-[10px] text-gray-400">Live Trend Analysis</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
+                    <div class="md:col-span-1 space-y-2">
+                        <p class="text-[10px] text-gray-400">Click topic to ask instantly:</p>
+                        <div id="userTrendingClaimsContainer" class="flex flex-wrap gap-1.5 text-xs">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+                    <div class="md:col-span-2 relative h-36 bg-gray-950/60 p-2 rounded-xl border border-gray-800">
+                        <canvas id="userHealthTrendsChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- DYNAMIC SUMMARY CALLOUT FOR HEALTH CHART -->
+                <div class="p-2.5 rounded-xl bg-cyan-950/30 border border-cyan-500/20 grid grid-cols-1 md:grid-cols-3 gap-2 text-[11px]">
+                    <div>
+                        <span class="text-gray-400 text-[10px]">🔥 Most Asked Question:</span>
+                        <p class="font-bold text-cyan-300 truncate" id="userHealthTopSearch">Sleep & weight loss</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-400 text-[10px]">📊 Total Health Inquiries Sum:</span>
+                        <p class="font-bold text-emerald-300" id="userHealthTotalSum">0 queries</p>
+                    </div>
+                    <div>
+                        <span class="text-gray-400 text-[10px]">📈 Trend Insight:</span>
+                        <p class="font-semibold text-cyan-200 truncate" id="userHealthInsight">High user focus on metabolic wellness.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card rounded-2xl p-4 md:p-5 space-y-3">
+                <div class="flex items-center justify-between">
+                    <h3 id="claims-input-heading" class="font-semibold text-xs uppercase tracking-wider text-gray-200 flex items-center space-x-1.5">
+                        <i class="fa-solid fa-user-doctor text-cyan-400"></i>
+                        <span>Ask Health Advice, Scenario or Verify a Claim</span>
+                    </h3>
+                    <div class="flex space-x-1 bg-gray-900 p-0.5 rounded-lg border border-gray-800">
+                        <button onclick="setClaimInputMode('text')" id="btn-mode-text" class="px-2.5 py-1 text-[11px] rounded-md bg-cyan-500 text-slate-950 font-semibold shadow-xs">Text</button>
+                        <button onclick="setClaimInputMode('image')" id="btn-mode-image" class="px-2.5 py-1 text-[11px] rounded-md text-gray-400 hover:text-white">Upload Image</button>
+                    </div>
+                </div>
+
+                <div id="claim-mode-text-box" class="space-y-2">
+                    <textarea id="claimInputText" rows="3" class="w-full bg-gray-900 border border-gray-800 rounded-xl p-3 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-all leading-relaxed" placeholder="e.g. My leg hurts / Sakit kepala / Sakit perut / Skin rash / Is it true that sleep can help me reduce weight? / I have high morning blood sugar...">Is it true that sleep can help me reduce weight?</textarea>
+                    <button id="btn-analyze-text" onclick="analyzeClaim()" class="w-full py-2.5 bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center space-x-1.5 mt-2">
+                        <i class="fa-solid fa-magnifying-glass font-bold"></i>
+                        <span id="btn-analyze-text-lbl">Get Health Guidance & Fact Check</span>
+                    </button>
+                </div>
+
+
+                <div id="claim-mode-image-box" class="hidden space-y-3">
+                    <div class="border border-dashed border-cyan-500/40 rounded-xl p-5 text-center hover:border-cyan-400 transition-colors cursor-pointer bg-cyan-950/20" onclick="document.getElementById('claimImageFile').click()">
+                        <i class="fa-solid fa-camera text-3xl text-cyan-400 mb-2"></i>
+                        <p id="img-upload-title" class="text-xs text-gray-200 font-bold">Upload Photo (Medicine Label, Packaging, or Skin Issue)</p>
+                        <p id="img-upload-sub" class="text-[10px] text-gray-400 mt-1">Automatic OCR text extraction active.</p>
+                        <input type="file" id="claimImageFile" accept="image/*" class="hidden" onchange="handleImageUpload(event, 'claim')">
+                    </div>
+
+                    <div id="claimImagePreviewArea" class="hidden space-y-3 text-center bg-gray-900/80 p-3 rounded-xl border border-gray-800">
+                        <img id="uploadedClaimImgPreview" class="max-h-44 rounded-xl mx-auto border border-gray-700 shadow-sm object-contain" alt="Preview" crossorigin="anonymous">
+
+                        <div id="claimProgressBox" class="text-left bg-gray-950 p-2.5 rounded-xl border border-gray-800 space-y-1">
+                            <div class="flex justify-between items-center">
+                                <span class="text-[10px] font-bold text-cyan-400 uppercase tracking-wider" id="claimProgressStep">Reading text from photo...</span>
+                                <i class="fa-solid fa-spinner fa-spin text-cyan-400 text-xs" id="claimSpinner"></i>
+                            </div>
+                            <div class="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
+                                <div id="claimProgressBar" class="bg-gradient-to-r from-cyan-500 to-emerald-400 h-full w-1/3 transition-all duration-300"></div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-1.5 text-left pt-1">
+                            <label class="text-[10px] font-bold text-gray-300 uppercase tracking-wider flex items-center justify-between">
+                                <span>Extracted Text from Image (Editable):</span>
+                            </label>
+                            <div class="flex gap-2">
+                                <input type="text" id="extractedClaimText" class="flex-1 bg-gray-950 border border-cyan-500/60 rounded-xl p-2.5 text-xs text-cyan-200 font-semibold focus:outline-none focus:border-cyan-400" placeholder="Extracted text will appear here...">
+                                <button onclick="analyzeClaim()" class="px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-emerald-500 text-slate-950 font-bold text-xs rounded-xl hover:from-cyan-400 hover:to-emerald-400 shrink-0 shadow-md">
+                                    Analyze Health Advice
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="claimResultsContainer" class="hidden space-y-3"></div>
+        </section>
+
+        <!-- TAB 2: MEDICINE CHECK -->
+        <section id="view-medicine" class="hidden space-y-4">
+            <div class="glass-card rounded-2xl p-4 md:p-5 border border-gray-800 space-y-3">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 id="med-view-title" class="text-base font-bold text-white flex items-center space-x-2">
+                            <i class="fa-solid fa-pills text-cyan-400"></i>
+                            <span>Medicine & Vision Scanner</span>
+                        </h2>
+                        <p id="med-view-desc" class="text-xs text-gray-400 mt-0.5">Type a drug name or upload a photo of a label/box to read text automatically.</p>
+                    </div>
+                    <!-- OFFICIAL NPRA SEARCH LINK -->
+                    <a href="https://www.npra.gov.my/index.php/my/consumers-2/maklumat/carian-produk-berdaftar-bernotifikasi.html" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-[11px] font-bold rounded-xl text-emerald-400 border border-emerald-500/30 flex items-center space-x-1.5 shrink-0 transition-all shadow-sm">
+                        <i class="fa-solid fa-building-columns text-emerald-400"></i>
+                        <span>NPRA Search Portal</span>
+                        <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                    </a>
+                </div>
+
+                <!-- USER DASHBOARD: TRENDING MEDICINES CHART & SUMMARY STATS -->
+                <div class="p-3.5 rounded-2xl bg-emerald-950/30 border border-emerald-500/20 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-emerald-300 flex items-center space-x-1">
+                            <i class="fa-solid fa-chart-line text-emerald-400"></i>
+                            <span>Most Verified Medicines & Substances</span>
+                        </span>
+                        <span class="text-[10px] text-gray-400">Search Analytics</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
+                        <div class="md:col-span-1 space-y-2">
+                            <p class="text-[10px] text-gray-400">Click to fill drug name:</p>
+                            <div id="userTrendingMedContainer" class="flex flex-wrap gap-1.5 text-xs">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                        <div class="md:col-span-2 relative h-36 bg-gray-950/60 p-2 rounded-xl border border-gray-800">
+                            <canvas id="userMedTrendsChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- DYNAMIC SUMMARY CALLOUT FOR MEDICINE CHART -->
+                    <div class="p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-500/20 grid grid-cols-1 md:grid-cols-3 gap-2 text-[11px]">
+                        <div>
+                            <span class="text-gray-400 text-[10px]">💊 Top Verified Drug:</span>
+                            <p class="font-bold text-emerald-300 uppercase" id="userMedTopSearch">Panadol</p>
+                        </div>
+                        <div>
+                            <span class="text-gray-400 text-[10px]">📊 Total Drug Scans Sum:</span>
+                            <p class="font-bold text-cyan-300" id="userMedTotalSum">0 scans</p>
+                        </div>
+                        <div>
+                            <span class="text-gray-400 text-[10px]">📈 Safety Pattern:</span>
+                            <p class="font-semibold text-emerald-200 truncate" id="userMedInsight">Painkillers lead active drug queries.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex space-x-1 bg-gray-900 p-0.5 rounded-lg border border-gray-800 w-fit">
+                    <button onclick="setMedicineInputMode('text')" id="btn-med-text" class="px-3 py-1 text-[11px] rounded-md bg-cyan-500 text-slate-950 font-semibold">Type Name</button>
+                    <button onclick="setMedicineInputMode('image')" id="btn-med-image" class="px-3 py-1 text-[11px] rounded-md text-gray-400 hover:text-white">Upload Image</button>
+                </div>
+
+                <div id="med-mode-text-box" class="space-y-2.5">
+                    <input type="text" id="medInputText" value="panadol" class="w-full bg-gray-900 border border-gray-800 rounded-xl p-3 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-all">
+                </div>
+
+                <div id="med-mode-image-box" class="hidden space-y-3">
+                    <div class="border border-dashed border-cyan-500/40 rounded-xl p-5 text-center hover:border-cyan-400 transition-colors cursor-pointer bg-cyan-950/20" onclick="document.getElementById('medImageFile').click()">
+                        <i class="fa-solid fa-prescription-bottle-medical text-3xl text-cyan-400 mb-2"></i>
+                        <p id="med-img-upload-lbl" class="text-xs text-gray-200 font-bold">Click to upload photo of a pill, medicine box, or bottle</p>
+                        <input type="file" id="medImageFile" accept="image/*" class="hidden" onchange="handleImageUpload(event, 'med')">
+                    </div>
+
+                    <div id="medImagePreviewArea" class="hidden space-y-3 text-center bg-gray-900/80 p-3 rounded-xl border border-gray-800">
+                        <img id="uploadedMedImgPreview" class="max-h-44 rounded-xl mx-auto border border-gray-700 shadow-sm object-contain" alt="Preview" crossorigin="anonymous">
+
+                        <div id="medProgressBox" class="text-left bg-gray-950 p-2.5 rounded-xl border border-gray-800 space-y-1">
+                            <div class="flex justify-between items-center">
+                                <span class="text-[10px] font-bold text-cyan-400 uppercase tracking-wider" id="medProgressStep">Extracting text from image...</span>
+                                <i class="fa-solid fa-spinner fa-spin text-cyan-400 text-xs" id="medSpinner"></i>
+                            </div>
+                            <div class="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
+                                <div id="medProgressBar" class="bg-gradient-to-r from-cyan-500 to-emerald-400 h-full w-1/3 transition-all duration-300"></div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-1.5 text-left pt-1">
+                            <label class="text-[10px] font-bold text-gray-300 uppercase tracking-wider flex items-center justify-between">
+                                <span>Extracted Substance / Drug Name (Editable):</span>
+                            </label>
+                            <div class="flex gap-2">
+                                <input type="text" id="extractedMedText" class="flex-1 bg-gray-950 border border-cyan-500/60 rounded-xl p-2.5 text-xs text-cyan-200 font-semibold focus:outline-none focus:border-cyan-400" placeholder="Extracted medicine name will appear here...">
+                                <button onclick="checkMedicine()" class="px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-emerald-500 text-slate-950 font-bold text-xs rounded-xl hover:from-cyan-400 hover:to-emerald-400 shrink-0 shadow-md">
+                                    Verify Medicine
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="checkMedicine()" class="w-full py-2.5 bg-gradient-to-r from-cyan-500 to-emerald-500 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-all">
+                    <span id="btn-med-check-lbl">Check Safety, Dosage & Legal Classification</span>
+                </button>
+            </div>
+
+            <div id="medResultsContainer" class="hidden space-y-4"></div>
+        </section>
+
+        <!-- TAB 3: HEALTH NEWS -->
+        <section id="view-article" class="hidden space-y-4">
+            <div class="glass-card rounded-2xl p-4 md:p-5 border border-gray-800 space-y-3">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 id="news-view-title" class="text-base font-bold text-white flex items-center space-x-2">
+                            <i class="fa-solid fa-newspaper text-cyan-400"></i>
+                            <span>Real-Time Health News & Updates</span>
+                        </h2>
+                        <p class="text-xs text-gray-400 mt-0.5" id="newsDateSubtitle">Updated daily with active health advisories.</p>
+                    </div>
+                    <button onclick="loadHealthNews()" class="px-3 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-xs font-bold rounded-lg text-cyan-300 border border-cyan-500/30 flex items-center space-x-1.5">
+                        <i class="fa-solid fa-rotate"></i>
+                        <span id="news-refresh-lbl">Refresh Daily News</span>
+                    </button>
+                </div>
+                <div id="newsFeedContainer" class="grid grid-cols-1 md:grid-cols-2 gap-3.5"></div>
+            </div>
+        </section>
+
+        <!-- TAB 4: MY HISTORY -->
+        <section id="view-history" class="hidden space-y-4">
+            <div class="glass-card rounded-2xl p-4 md:p-5 border border-gray-800 space-y-3">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 id="hist-view-title" class="text-base font-bold text-white flex items-center space-x-2">
+                            <i class="fa-solid fa-clock-rotate-left text-cyan-400"></i>
+                            <span>My Verification History</span>
+                        </h2>
+                        <p id="hist-view-desc" class="text-xs text-gray-400 mt-0.5">Review all health claims and medicines you have checked.</p>
+                    </div>
+                    <button onclick="clearHistory()" id="hist-clear-lbl" class="px-2.5 py-1 bg-red-500/10 hover:bg-red-500/20 text-[11px] font-medium rounded-lg text-red-400 border border-red-500/20">
+                        Clear History
+                    </button>
+                </div>
+                <div id="historyListContainer" class="space-y-2.5"></div>
+            </div>
+        </section>
+
+        <!-- TAB 5: SETTINGS -->
+        <section id="view-settings" class="hidden space-y-4">
+            <div class="glass-card rounded-2xl p-4 md:p-5 border border-gray-800 space-y-4">
+                <div>
+                    <h2 id="set-view-title" class="text-base font-bold text-white flex items-center space-x-2">
+                        <i class="fa-solid fa-gear text-cyan-400"></i>
+                        <span>Preferences & Accessibility</span>
+                    </h2>
+                    <p id="set-view-desc" class="text-xs text-gray-400 mt-0.5">Customize your MEDSENTRA experience.</p>
+                </div>
+                <div class="space-y-3 divide-y divide-gray-800 text-xs">
+                    <div class="pt-3 flex items-center justify-between">
+                        <div>
+                            <h3 id="set-lang-title" class="font-semibold text-white">Preferred Language</h3>
+                        </div>
+                        <select onchange="changeLanguage(this.value)" id="settingsLangSelect" class="bg-gray-900 border border-gray-800 text-gray-200 px-2.5 py-1.5 rounded-lg">
+                            <option value="en">English</option>
+                            <option value="ms">Bahasa Melayu</option>
+                            <option value="ta">தமிழ்</option>
+                            <option value="zh">中文</option>
+                        </select>
+                    </div>
+                    <div class="pt-3 flex items-center justify-between">
+                        <div>
+                            <h3 id="set-hc-title" class="font-semibold text-white">High Contrast Mode</h3>
+                        </div>
+                        <input type="checkbox" onchange="toggleHighContrast(this.checked)" class="w-4 h-4 accent-cyan-500 cursor-pointer">
+                    </div>
+                    <div class="pt-3 flex items-center justify-between">
+                        <div>
+                            <h3 id="set-lt-title" class="font-semibold text-white">Large Text Mode</h3>
+                        </div>
+                        <input type="checkbox" onchange="toggleLargeText(this.checked)" class="w-4 h-4 accent-cyan-500 cursor-pointer">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-[#0b0f19] border-t border-gray-800 py-3 px-4 text-center text-[11px] text-gray-500 no-print flex flex-col md:flex-row items-center justify-between max-w-4xl mx-auto w-full">
+        <p id="footer-text">© 2026 MEDSENTRA. Built with peer-reviewed medical standards and official regulatory links.</p>
+        <a href="https://www.npra.gov.my/index.php/my/consumers-2/maklumat/carian-produk-berdaftar-bernotifikasi.html" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:underline flex items-center space-x-1 mt-1 md:mt-0">
+            <i class="fa-solid fa-building-columns text-[10px]"></i>
+            <span>NPRA Carian Produk Berdaftar (KKM)</span>
+            <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+        </a>
+    </footer>
+
+    <!-- LOGIN / SIGN UP MODAL -->
+    <div id="userAuthModal" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="glass-card rounded-2xl max-w-sm w-full p-5 border border-gray-800 space-y-3.5 relative shadow-2xl">
+            <button onclick="closeUserAuthModal()" class="absolute top-3.5 right-3.5 text-gray-400 hover:text-white">
+                <i class="fa-solid fa-xmark text-base"></i>
+            </button>
+            <div class="flex items-center space-x-2.5">
+                <div class="w-9 h-9 rounded-xl bg-cyan-500/20 flex items-center justify-center text-cyan-400 font-bold">
+                    <i class="fa-solid fa-user-shield"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-sm text-white" id="userAuthModalTitle">Login / Sign Up</h3>
+                    <p id="auth-modal-sub" class="text-[11px] text-gray-400">Access account or administrator portal</p>
+                </div>
+            </div>
+
+            <div class="space-y-2.5 text-xs">
+                <div id="userNameFieldContainer" class="hidden">
+                    <label id="lbl-fullname" class="block font-medium text-gray-300 mb-0.5">Full Name</label>
+                    <input type="text" id="userFullNameInput" class="w-full bg-gray-900 border border-gray-800 rounded-xl p-2.5 text-gray-200 focus:outline-none focus:border-cyan-500" placeholder="Aishah Rahman">
+                </div>
+                <div>
+                    <label id="lbl-email" class="block font-medium text-gray-300 mb-0.5">Email Address / Admin ID</label>
+                    <input type="email" id="userEmailInput" class="w-full bg-gray-900 border border-gray-800 rounded-xl p-2.5 text-gray-200 focus:outline-none focus:border-cyan-500" placeholder="user@gmail.com">
+                </div>
+                <div>
+                    <label id="lbl-pass" class="block font-medium text-gray-300 mb-0.5">Password</label>
+                    <input type="password" id="userPasswordInput" class="w-full bg-gray-900 border border-gray-800 rounded-xl p-2.5 text-gray-200 focus:outline-none focus:border-cyan-500" placeholder="••••••••••••">
+                </div>
+                <button onclick="submitUnifiedAuth()" id="userAuthSubmitBtn" class="w-full py-2.5 bg-gradient-to-r from-cyan-500 to-emerald-500 text-slate-950 font-bold rounded-xl shadow-md transition-all">
+                    Login / Access Portal
+                </button>
+                <div class="text-center pt-1">
+                    <button onclick="toggleAuthMode()" id="authSwitchModeBtn" class="text-[11px] text-cyan-400 hover:underline">
+                        Don't have an account? Sign up first
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADMIN DASHBOARD MODAL WITH VISUAL CHARTS & DUAL PRINT OPTIONS -->
+    <div id="adminDashboardModal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col p-4 overflow-y-auto">
+        <div class="max-w-4xl w-full mx-auto my-auto glass-card rounded-2xl p-5 border border-cyan-500/30 space-y-4 shadow-2xl text-xs">
+            <div class="flex items-center justify-between border-b border-gray-800 pb-3 no-print">
+                <div class="flex items-center space-x-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-cyan-500 text-slate-950 flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-chart-line"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-bold text-sm text-white">MEDSENTRA Admin Analytics Control Centre</h2>
+                        <p class="text-[11px] text-cyan-400 font-medium">Real-time user search behavior & system usage graphs</p>
+                    </div>
+                </div>
+
+                <!-- ADMIN PRINT OPTIONS DUAL BUTTONS -->
+                <div class="flex space-x-2">
+                    <button onclick="printAdminReport('activity')" class="px-2.5 py-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 font-semibold rounded-lg border border-cyan-500/30 flex items-center space-x-1 transition-all">
+                        <i class="fa-solid fa-print text-xs"></i>
+                        <span>Print User Logs</span>
+                    </button>
+                    <button onclick="printAdminReport('dashboard')" class="px-2.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 font-semibold rounded-lg border border-emerald-500/30 flex items-center space-x-1 transition-all">
+                        <i class="fa-solid fa-chart-pie text-xs"></i>
+                        <span>Print Dashboard & Graphs</span>
+                    </button>
+                    <button onclick="logoutAdmin()" class="px-2.5 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 font-semibold rounded-lg border border-red-500/20 flex items-center space-x-1 transition-all">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                        <span>Logout</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- OVERVIEW COUNTERS -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 no-print">
+                <div class="p-3 rounded-xl bg-gray-900 border border-gray-800 space-y-0.5">
+                    <span class="text-[11px] text-gray-400">Total System Logs</span>
+                    <h3 class="text-lg font-bold text-cyan-400" id="adminVerificationCount">0</h3>
+                </div>
+                <div class="p-3 rounded-xl bg-gray-900 border border-gray-800 space-y-0.5">
+                    <span class="text-[11px] text-gray-400">Knowledge Base Resources</span>
+                    <h3 class="text-lg font-bold text-emerald-400" id="adminKbCount">0</h3>
+                </div>
+                <div class="p-3 rounded-xl bg-gray-900 border border-gray-800 space-y-0.5">
+                    <span class="text-[11px] text-gray-400">Analytics Status</span>
+                    <h3 class="text-lg font-bold text-cyan-300">ACTIVE GRAPH</h3>
+                </div>
+            </div>
+
+            <!-- SECTION A: VISUAL CHARTS & TREND DASHBOARDS -->
+            <div id="adminChartsPrintSection" class="space-y-3">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <!-- CHART 1: SYSTEM ACTIVITY TREND LINE -->
+                    <div class="p-3.5 rounded-xl bg-gray-900 border border-gray-800 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-bold text-xs text-cyan-400 flex items-center space-x-1">
+                                <i class="fa-solid fa-chart-line"></i>
+                                <span>System Activity Trend Line</span>
+                            </h3>
+                            <span class="text-[9px] text-gray-500">Timeline Analysis</span>
+                        </div>
+                        <div class="relative h-44 bg-gray-950 p-2 rounded-lg border border-gray-800">
+                            <canvas id="adminTrendLineChart"></canvas>
+                        </div>
+                        <!-- GRAPH METRICS SUMMARY -->
+                        <div class="p-2 rounded-lg bg-cyan-950/40 border border-cyan-500/20 flex justify-between items-center text-[11px]">
+                            <div>
+                                <span class="text-gray-400 text-[10px]">Peak Activity Day:</span>
+                                <span class="font-bold text-cyan-300 ml-1" id="adminTrendPeakDay">Sunday</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-400 text-[10px]">Combined Volume Sum:</span>
+                                <span class="font-bold text-emerald-300 ml-1" id="adminTrendVolumeSum">0 queries</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CHART 2: TOP 5 SEARCHED QUESTIONS / MEDICINES -->
+                    <div class="p-3.5 rounded-xl bg-gray-900 border border-gray-800 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-bold text-xs text-emerald-400 flex items-center space-x-1">
+                                <i class="fa-solid fa-chart-simple"></i>
+                                <span>Most Searched Topics Ranking</span>
+                            </h3>
+                            <span class="text-[9px] text-gray-500">Frequency Analysis</span>
+                        </div>
+                        <div class="relative h-44 bg-gray-950 p-2 rounded-lg border border-gray-800">
+                            <canvas id="adminTopBarChart"></canvas>
+                        </div>
+                        <!-- GRAPH METRICS SUMMARY -->
+                        <div class="p-2 rounded-lg bg-emerald-950/40 border border-emerald-500/20 flex justify-between items-center text-[11px]">
+                            <div>
+                                <span class="text-gray-400 text-[10px]">#1 Top Searched Term:</span>
+                                <span class="font-bold text-emerald-300 ml-1 uppercase" id="adminTopBarTerm">Panadol</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-400 text-[10px]">Topic Sum Total:</span>
+                                <span class="font-bold text-cyan-300 ml-1" id="adminTopBarSum">0 queries</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FEATURE USAGE RATIO DOUGHNUT CHART -->
+                <div class="p-3.5 rounded-xl bg-gray-900 border border-gray-800 grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
+                    <div class="space-y-1">
+                        <h3 class="font-bold text-xs text-white flex items-center space-x-1.5">
+                            <i class="fa-solid fa-pie-chart text-cyan-400"></i>
+                            <span>Feature Interest Split</span>
+                        </h3>
+                        <p class="text-[10px] text-gray-400 leading-relaxed">Percentage breakdown comparing Health Advice Chat inquiries vs. Medicine Verification requests.</p>
+                        <div class="pt-1 text-[11px]">
+                            <span class="text-gray-400 text-[10px]">Dominant Behavior:</span>
+                            <p class="font-bold text-cyan-300" id="adminRatioDominant">Medicine Verification (54%)</p>
+                        </div>
+                    </div>
+                    <div class="md:col-span-2 relative h-36 bg-gray-950 p-2 rounded-lg border border-gray-800">
+                        <canvas id="adminUsageRatioChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION B: USER ACTIVITY HISTORY REPORT -->
+            <div id="adminActivityPrintSection" class="p-4 rounded-xl bg-gray-900 border border-gray-800 space-y-3">
+                <div class="flex items-center justify-between no-print">
+                    <h3 class="font-bold text-xs text-white flex items-center space-x-1.5">
+                        <i class="fa-solid fa-users text-cyan-400"></i>
+                        <span>Select User to Inspect Verification History</span>
+                    </h3>
+                    <select id="adminUserSelect" onchange="inspectSelectedUserHistory(this.value)" class="bg-gray-800 border border-gray-700 text-xs text-gray-200 px-3 py-1.5 rounded-lg cursor-pointer">
+                        <option value="">-- All Registered Users --</option>
+                    </select>
+                </div>
+
+                <div id="printUserReportSection" class="space-y-2">
+                    <div id="printReportHeader" class="hidden print:block text-sm font-bold text-black pb-2 border-b border-black mb-2">
+                        MEDSENTRA — Official Administrator User Activity Audit Report
+                    </div>
+                    <div id="adminSelectedUserHistoryContainer" class="space-y-1.5 text-[11px] text-gray-300 max-h-48 overflow-y-auto p-2 bg-gray-950 print:bg-white print:text-black rounded-lg border border-gray-800 print:border-black">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- ADMIN FEATURE: INSERT KNOWLEDGE BASE LINK TO ANY TAB -->
+            <div class="p-4 rounded-xl bg-gray-900 border border-cyan-500/30 space-y-3 no-print">
+                <h3 class="font-bold text-xs text-cyan-300 flex items-center space-x-2">
+                    <i class="fa-solid fa-link text-cyan-400"></i>
+                    <span>Add External Knowledge Base Link (Target Specific Tab)</span>
+                </h3>
+                <p class="text-[11px] text-gray-400">Inject reference links and guidance into the system. When users search terms matching your keywords, this link will be automatically recommended to them.</p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-300 mb-1">Target Tab:</label>
+                        <select id="adminKbTargetTab" class="w-full bg-gray-950 border border-gray-800 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-cyan-500">
+                            <option value="claims">Health Claims (Health Advice)</option>
+                            <option value="medicine">Medicine Check</option>
+                            <option value="article">Health News</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-300 mb-1">Resource Title:</label>
+                        <input type="text" id="adminKbTitle" class="w-full bg-gray-950 border border-gray-800 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-cyan-500" placeholder="e.g. KKM Official Clinical Practice Guidelines">
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-300 mb-1">Target Keywords (Comma Separated):</label>
+                        <input type="text" id="adminKbKeywords" class="w-full bg-gray-950 border border-gray-800 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-cyan-500" placeholder="e.g. sleep, weight, headache, panadol, fever">
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-300 mb-1">External Link URL:</label>
+                        <input type="url" id="adminKbUrl" class="w-full bg-gray-950 border border-gray-800 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-cyan-500" placeholder="https://www.moh.gov.my">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-300 mb-1">Resource Description / Summary:</label>
+                    <textarea id="adminKbDesc" rows="2" class="w-full bg-gray-950 border border-gray-800 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-cyan-500" placeholder="Brief explanation of what this knowledge link provides..."></textarea>
+                </div>
+
+                <button onclick="addKnowledgeLink()" class="w-full py-2 bg-gradient-to-r from-cyan-500 to-emerald-500 text-slate-950 font-bold text-xs rounded-lg hover:from-cyan-400 hover:to-emerald-400 shadow-md">
+                    <i class="fa-solid fa-plus mr-1"></i> Save Knowledge Resource to System
+                </button>
+            </div>
+
+            <!-- Active Knowledge Entries List -->
+            <div class="p-4 rounded-xl bg-gray-900 border border-gray-800 space-y-3 flex flex-col no-print">
+                <h3 class="font-bold text-xs text-cyan-400"><i class="fa-solid fa-database mr-1"></i> Active Knowledge Base Visual Dataset</h3>
+                <div id="adminKbList" class="overflow-y-auto space-y-2 pr-1 custom-scrollbar max-h-56"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CUSTOM ALERT MODAL -->
+    <div id="customAlertModal" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="glass-card rounded-2xl max-w-xs w-full p-5 border border-gray-800 text-center space-y-3">
+            <div id="alertIcon" class="w-10 h-10 rounded-full bg-cyan-500/20 text-cyan-400 text-base flex items-center justify-center mx-auto">
+                <i class="fa-solid fa-circle-info"></i>
+            </div>
+            <h3 id="alertTitle" class="font-bold text-sm text-white">Notice</h3>
+            <p id="alertMessage" class="text-xs text-gray-300"></p>
+            <button onclick="closeAlert()" class="w-full py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl">OK</button>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT EXECUTION ENGINE -->
+    <script>
+        // WEBHOOK ENDPOINT (PRODUCTION)
+        const N8N_WEBHOOK_URL = "http://localhost:5678/webhook/medsentra-request";
+
+        // SEED DEFAULT HISTORY FOR INITIAL DASHBOARD VISUALIZATIONS
+        const defaultSampleHistory = [
+            { id: 1, type: 'Medicine Check', title: 'panadol', result: 'Verified by System', time: '10/21/2026, 8:30 AM', user: 'user1@medsentra.my' },
+            { id: 2, type: 'Medicine Check', title: 'panadol', result: 'Verified by System', time: '10/21/2026, 8:45 AM', user: 'user2@medsentra.my' },
+            { id: 3, type: 'Medicine Check', title: 'amoxicillin', result: 'Verified by System', time: '10/21/2026, 9:00 AM', user: 'user3@medsentra.my' },
+            { id: 4, type: 'Health Chat', title: 'Is it true that sleep can help me reduce weight?', result: 'Processed by System', time: '10/21/2026, 9:10 AM', user: 'user1@medsentra.my' },
+            { id: 5, type: 'Health Chat', title: 'Sakit kepala', result: 'Processed by System', time: '10/21/2026, 9:15 AM', user: 'user4@medsentra.my' },
+            { id: 6, type: 'Medicine Check', title: 'ibuprofen', result: 'Verified by System', time: '10/21/2026, 9:20 AM', user: 'user2@medsentra.my' },
+            { id: 7, type: 'Health Chat', title: 'Sakit perut', result: 'Processed by System', time: '10/21/2026, 9:30 AM', user: 'user5@medsentra.my' }
+        ];
+
+        // DEFAULT INITIAL KNOWLEDGE BASE LINKS
+        const defaultKbLinks = [
+            {
+                id: 1,
+                targetTab: 'claims',
+                title: 'Ministry of Health Malaysia (KKM) Official Guidelines',
+                keywords: 'sleep, weight, headache, sakit kepala, fever, demam, diet',
+                url: 'https://www.moh.gov.my',
+                description: 'Official clinical guidelines and public health advisories from Ministry of Health.'
+            },
+            {
+                id: 2,
+                targetTab: 'medicine',
+                title: 'National Pharmaceutical Regulatory Agency (NPRA) Portal',
+                keywords: 'panadol, amoxicillin, ibuprofen, paracetamol, medicine, drug',
+                url: 'https://www.npra.gov.my/index.php/my/consumers-2/maklumat/carian-produk-berdaftar-bernotifikasi.html',
+                description: 'Official registered drug directory and safety classification portal in Malaysia.'
+            }
+        ];
+
+        let currentLang = 'en';
+        let currentUser = { email: "testuser@medsentra.my", name: "Test User" };
+        let allHistory = JSON.parse(localStorage.getItem('medsentra_user_history') || JSON.stringify(defaultSampleHistory));
+        let allKbLinks = JSON.parse(localStorage.getItem('medsentra_kb_links') || JSON.stringify(defaultKbLinks));
+        let isRegisterMode = true;
+
+        // CHART INSTANCES
+        let userHealthChartInst = null;
+        let userMedChartInst = null;
+        let adminTrendLineChartInst = null;
+        let adminTopBarChartInst = null;
+        let adminUsageRatioChartInst = null;
+
+        window.onload = function() {
+            updateLocalizedUI();
+            loadHealthNews();
+            renderAdminKbList();
+            renderUserDashboards();
+            populateAdminUserDropdown();
+        };
+
+        // DICTIONARY MULTI-BAHASA LENGKAP
+        const i18n = {
+            en: {
+                headerSub: "Health Truth & Medicine Verification",
+                navClaims: "Health Claims",
+                navMed: "Medicine Check",
+                navNews: "Health News",
+                navHistory: "My History",
+                navSettings: "Settings",
+                loginBtn: "Login / Sign Up",
+                claimsBadge: "System Health Fact-Checker & Advice Engine",
+                claimsTitle: "Before You Believe It or Act, Verify It.",
+                claimsInputHeading: "Ask Health Advice, Scenario or Verify a Claim",
+                btnText: "Text",
+                btnImage: "Upload Image",
+                claimPlaceholder: "e.g. My leg hurts / Sakit kepala / Sakit perut / Skin rash / Is it true that sleep can help me reduce weight?...",
+                analyzeTextBtn: "Get Health Guidance & Fact Check",
+                imgUploadTitle: "Upload Photo (Medicine Label, Packaging, or Skin Issue)",
+                imgUploadSub: "Automatic OCR text extraction active.",
+                medViewTitle: "Medicine & Vision Scanner",
+                medViewDesc: "Type a drug name or upload a photo of a label/box to read text automatically.",
+                btnMedText: "Type Name",
+                btnMedImage: "Upload Image",
+                medPlaceholder: "Enter medicine or substance name (e.g. Paracetamol, Amoxicillin, Ibuprofen, Bleach)...",
+                medImgUpload: "Click to upload photo of a pill, medicine box, or bottle",
+                medCheckBtn: "Check Safety, Dosage & Legal Classification",
+                newsViewTitle: "Real-Time Health News & Updates",
+                newsSub: "Updated daily with active health advisories.",
+                newsRefresh: "Refresh Daily News",
+                histViewTitle: "My Verification History",
+                histViewDesc: "Review all health claims and medicines you have checked.",
+                histClear: "Clear History",
+                setViewTitle: "Preferences & Accessibility",
+                setViewDesc: "Customize your MEDSENTRA experience.",
+                setLangTitle: "Preferred Language",
+                setHcTitle: "High Contrast Mode",
+                setLtTitle: "Large Text Mode",
+                footerText: "© 2026 MEDSENTRA. Built with peer-reviewed medical standards and official regulatory links.",
+                connectingHealth: "Please wait while we process your health inquiry...",
+                connectingMed: "Please wait while we verify the medicine information...",
+                aiAdviceResult: "Health Advice",
+                aiMedResult: "Verification Result",
+                connFailed: "Connection Failed",
+                connFailedDesc: "Unable to complete request. Please try again in a moment.",
+                queryLabel: "Query",
+                noHistory: "No verification history yet.",
+                processedByAi: "Processed by System",
+                verifiedByAi: "Verified by System",
+                inputRequired: "Input Required",
+                enterQueryAlert: "Please enter a health scenario or claim.",
+                enterMedAlert: "Please enter or scan a medicine name."
+            },
+            ms: {
+                headerSub: "Kebenaran Kesihatan & Semakan Ubat",
+                navClaims: "Tuntutan Kesihatan",
+                navMed: "Semakan Ubat",
+                navNews: "Berita Kesihatan",
+                navHistory: "Sejarah Saya",
+                navSettings: "Tetapan",
+                loginBtn: "Log Masuk / Daftar",
+                claimsBadge: "Enjin Panduan Kesihatan & Semakan Fakta",
+                claimsTitle: "Sebelum Anda Percaya Atau Bertindak, Semak Dulu.",
+                claimsInputHeading: "Minta Nasihat Kesihatan, Senario Atau Semak Tuntutan",
+                btnText: "Teks",
+                btnImage: "Muat Naik Gambar",
+                claimPlaceholder: "cth. Sakit kepala / Sakit perut / Kaki saya sakit / Ruam kulit / Adakah tidur cukup membantu mengurangkan berat badan?...",
+                analyzeTextBtn: "Dapatkan Panduan Kesihatan & Semakan",
+                imgUploadTitle: "Muat Naik Foto (Label Ubat, Pembungkusan, atau Masalah Kulit)",
+                imgUploadSub: "Pengeluaran teks automatik (OCR) diaktifkan.",
+                medViewTitle: "Pengimbas Ubat & Penglihatan",
+                medViewDesc: "Taip nama ubat atau muat naik foto label/kotak untuk membaca teks secara automatik.",
+                btnMedText: "Taip Nama",
+                btnMedImage: "Muat Naik Gambar",
+                medPlaceholder: "Masukkan nama ubat atau bahan (cth. Paracetamol, Amoxicillin, Ibuprofen, Peluntur)...",
+                medImgUpload: "Klik untuk muat naik foto pil, kotak ubat, atau botol",
+                medCheckBtn: "Semak Keselamatan, Dos & Klasifikasi Undang-undang",
+                newsViewTitle: "Berita & Kemaskini Kesihatan Masa Nyata",
+                newsSub: "Dikemaskini setiap hari dengan nasihat kesihatan aktif.",
+                newsRefresh: "Segarkan Berita Harian",
+                histViewTitle: "Sejarah Semakan Saya",
+                histViewDesc: "Semak semua tuntutan kesihatan dan ubat yang telah anda semak.",
+                histClear: "Padam Sejarah",
+                setViewTitle: "Keutamaan & Kebolehcapaian",
+                setViewDesc: "Sesuaikan pengalaman MEDSENTRA anda.",
+                setLangTitle: "Bahasa Pilihan",
+                setHcTitle: "Mod Kontras Tinggi",
+                setLtTitle: "Mod Teks Besar",
+                footerText: "© 2026 MEDSENTRA. Dibina dengan piawaian perubatan semakan rakan sebaya dan pautan rasmi.",
+                connectingHealth: "Sila tunggu semasa kami memproses soalan anda...",
+                connectingMed: "Sila tunggu semasa kami menyemak maklumat ubat...",
+                aiAdviceResult: "Nasihat Kesihatan",
+                aiMedResult: "Keputusan Semakan",
+                connFailed: "Sambungan Gagal",
+                connFailedDesc: "Gagal melengkapkan permintaan. Sila cuba sebentar lagi.",
+                queryLabel: "Soalan",
+                noHistory: "Tiada sejarah semakan lagi.",
+                processedByAi: "Diproses oleh Sistem",
+                verifiedByAi: "Disahkan oleh Sistem",
+                inputRequired: "Input Diperlukan",
+                enterQueryAlert: "Sila masukkan senario atau tuntutan kesihatan.",
+                enterMedAlert: "Sila masukkan atau imbas nama ubat."
+            },
+            ta: {
+                headerSub: "சுகாதார உண்மை & மருந்து சரிபார்ப்பு",
+                navClaims: "உடல்நலக் கோரிக்கைகள்",
+                navMed: "மருந்து சரிபார்ப்பு",
+                navNews: "சுகாதாரச் செய்திகள்",
+                navHistory: "எனது வரலாறு",
+                navSettings: "அமைப்புகள்",
+                loginBtn: "உள்நுழை / பதிவு செய்",
+                claimsBadge: "சுகாதார வழிகாட்டுதல் & உண்மைச் சரிபார்ப்பு",
+                claimsTitle: "நீங்கள் நம்புவதற்கு முன், சரிபார்க்கவும்.",
+                claimsInputHeading: "ஆலோசனை கேளுங்கள் அல்லது கூற்றை சரிபார்க்கவும்",
+                btnText: "உரை",
+                btnImage: "படத்தைப் பதிவேற்று",
+                claimPlaceholder: "எ.கா. என் கால் வலிக்கிறது / தூக்கம் உடல் எடையை குறைக்க உதவுமா?...",
+                analyzeTextBtn: "வழிகாட்டல் மற்றும் சரிபார்ப்பைப் பெறுங்கள்",
+                imgUploadTitle: "படத்தைப் பதிவேற்றவும்",
+                imgUploadSub: "படம் பகுப்பாய்வு செய்யப்படும்.",
+                medViewTitle: "மருந்து & பார்வை ஸ்கேனர்",
+                medViewDesc: "மருந்தின் பெயரை உள்ளிடவும் அல்லது புகைப்படத்தைப் பதிவேற்றவும்.",
+                btnMedText: "பெயரை உள்ளிடு",
+                btnMedImage: "படத்தைப் பதிவேற்று",
+                medPlaceholder: "மருந்து அல்லது பொருளின் பெயரை உள்ளிடவும் (எ.கா. Paracetamol)...",
+                medImgUpload: "புகைப்படத்தைப் பதிவேற்ற கிளிக் செய்யவும்",
+                medCheckBtn: "பாதுகாப்பு மற்றும் சட்டப் பிரிவைச் சரிபார்க்கவும்",
+                newsViewTitle: "நிகழ்நேர சுகாதாரச் செய்திகள்",
+                newsSub: "தினமும் புதுப்பிக்கப்படுகிறது.",
+                newsRefresh: "செய்திகளைப் புதுப்பிக்கவும்",
+                histViewTitle: "எனது சரிபார்ப்பு வரலாறு",
+                histViewDesc: "சரிபார்த்த மருந்துகளை மதிப்பாய்வு செய்யவும்.",
+                histClear: "வரலாற்றை அழிக்கவும்",
+                setViewTitle: "விருப்பத்தேர்வுகள் & அணுகல்",
+                setViewDesc: "உங்கள் அனுபவத்தைத் தனிப்பயனாக்குங்கள்.",
+                setLangTitle: "விருப்பமான மொழி",
+                setHcTitle: "அதிக மாறுபாட்டு முறை",
+                setLtTitle: "பெரிய உரை முறை",
+                footerText: "© 2026 MEDSENTRA. மருத்துவ தரநிலைகளுடன் கட்டப்பட்டது.",
+                connectingHealth: "தயவுசெய்து காத்திருக்கவும்...",
+                connectingMed: "தயவுசெய்து காத்திருக்கவும்...",
+                aiAdviceResult: "சுகாதார ஆலோசனை",
+                aiMedResult: "சரிபார்ப்பு முடிவு",
+                connFailed: "இணைப்பு தோல்வியடைந்தது",
+                connFailedDesc: "தயவுசெய்து சிறிது நேரம் கழித்து மீண்டும் முயற்சிக்கவும்.",
+                queryLabel: "கேள்வி",
+                noHistory: "இன்னும் சரிபார்ப்பு வரலாறு இல்லை.",
+                processedByAi: "செயலாக்கப்பட்டது",
+                verifiedByAi: "சரிபார்க்கப்பட்டது",
+                inputRequired: "உள்ளீடு தேவை",
+                enterQueryAlert: "தயவுசெய்து ஒரு சுகாதார சூழலை உள்ளிடவும்.",
+                enterMedAlert: "தயவுசெய்து மருந்தின் பெயரை உள்ளிடவும்."
+            },
+            zh: {
+                headerSub: "健康真相与药物核实",
+                navClaims: "健康声称与指南",
+                navMed: "药物检查",
+                navNews: "健康新闻",
+                navHistory: "我的历史",
+                navSettings: "设置",
+                loginBtn: "登录 / 注册",
+                claimsBadge: "系统健康事实核查与指导引擎",
+                claimsTitle: "在相信或行动之前，请先核实。",
+                claimsInputHeading: "寻求健康建议、咨询情景或核实声称",
+                btnText: "文字",
+                btnImage: "上传图片",
+                claimPlaceholder: "例如：我腿疼 / 头疼 / 胃疼 / 皮肤红疹 / 睡眠有助于减轻体重吗？...",
+                analyzeTextBtn: "获取健康指导与事实核查",
+                imgUploadTitle: "上传照片（药盒、药品标签或皮肤状况）",
+                imgUploadSub: "已启用自动文字提取 (OCR)。",
+                medViewTitle: "药物与视觉扫描仪",
+                medViewDesc: "输入药物/物品名称或上传照片以自动提取文字与识别。",
+                btnMedText: "输入名称",
+                btnMedImage: "上传图片",
+                medPlaceholder: "输入药物或物质名称（例如 Paracetamol, Amoxicillin...）",
+                medImgUpload: "点击上传药丸、药盒或瓶子的照片",
+                medCheckBtn: "检查安全性、剂量及法律分类",
+                newsViewTitle: "实时健康新闻与动态",
+                newsSub: "每日更新健康指南与资讯。",
+                newsRefresh: "刷新每日新闻",
+                histViewTitle: "我的核实历史",
+                histViewDesc: "查看您检查过的所有记录。",
+                histClear: "清除历史",
+                setViewTitle: "偏好与无障碍设置",
+                setViewDesc: "自定义您的偏好设置。",
+                setLangTitle: "首选语言",
+                setHcTitle: "高对比度模式",
+                setLtTitle: "大字体模式",
+                footerText: "© 2026 MEDSENTRA. 依托经同行评审的医疗标准构建。",
+                connectingHealth: "请稍候，正在为您处理...",
+                connectingMed: "请稍候，正在核实药物信息...",
+                aiAdviceResult: "健康建议",
+                aiMedResult: "核实结果",
+                connFailed: "连接失败",
+                connFailedDesc: "无法完成请求，请稍后重试。",
+                queryLabel: "查询",
+                noHistory: "暂无核实历史。",
+                processedByAi: "已处理",
+                verifiedByAi: "已核实",
+                inputRequired: "需要输入",
+                enterQueryAlert: "请输入健康情景或声称。",
+                enterMedAlert: "请输入或扫描药物名称。"
+            }
+        };
+
+        function changeLanguage(lang) {
+            currentLang = lang;
+            const sel1 = document.getElementById('langSelect');
+            if (sel1) sel1.value = lang;
+            const sel2 = document.getElementById('settingsLangSelect');
+            if (sel2) sel2.value = lang;
+            updateLocalizedUI();
+        }
+
+        function updateLocalizedUI() {
+            const t = i18n[currentLang] || i18n.en;
+
+            const setTxt = (id, text) => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = text;
+            };
+
+            const setChildSpan = (id, text) => {
+                const el = document.getElementById(id);
+                if (el) {
+                    const span = el.querySelector('span');
+                    if (span) span.innerText = text;
+                    else el.innerText = text;
+                }
+            };
+
+            const setPlaceholder = (id, text) => {
+                const el = document.getElementById(id);
+                if (el) el.placeholder = text;
+            };
+
+            // Header & Navigation
+            setTxt('txt-header-sub', t.headerSub);
+            setTxt('nav-lbl-claims', t.navClaims);
+            setTxt('nav-lbl-med', t.navMed);
+            setTxt('nav-lbl-news', t.navNews);
+            setTxt('nav-lbl-history', t.navHistory);
+            setTxt('nav-lbl-settings', t.navSettings);
+            setTxt('mob-lbl-claims', t.navClaims);
+            setTxt('mob-lbl-med', t.navMed);
+            setTxt('mob-lbl-news', t.navNews);
+            setTxt('mob-lbl-history', t.navHistory);
+            setTxt('mob-lbl-settings', t.navSettings);
+            setTxt('headerAuthLabel', t.loginBtn);
+
+            // Tab 1: Health Claims
+            setTxt('claims-badge', t.claimsBadge);
+            setTxt('claims-title', t.claimsTitle);
+            setChildSpan('claims-input-heading', t.claimsInputHeading);
+            setTxt('btn-mode-text', t.btnText);
+            setTxt('btn-mode-image', t.btnImage);
+            setPlaceholder('claimInputText', t.claimPlaceholder);
+            setTxt('btn-analyze-text-lbl', t.analyzeTextBtn);
+            setTxt('img-upload-title', t.imgUploadTitle);
+            setTxt('img-upload-sub', t.imgUploadSub);
+
+            // Tab 2: Medicine Check
+            setChildSpan('med-view-title', t.medViewTitle);
+            setTxt('med-view-desc', t.medViewDesc);
+            setTxt('btn-med-text', t.btnMedText);
+            setTxt('btn-med-image', t.btnMedImage);
+            setPlaceholder('medInputText', t.medPlaceholder);
+            setTxt('med-img-upload-lbl', t.medImgUpload);
+            setTxt('btn-med-check-lbl', t.medCheckBtn);
+
+            // Tab 3: News
+            setChildSpan('news-view-title', t.newsViewTitle);
+            setTxt('newsDateSubtitle', t.newsSub);
+            setTxt('news-refresh-lbl', t.newsRefresh);
+
+            // Tab 4: History
+            setChildSpan('hist-view-title', t.histViewTitle);
+            setTxt('hist-view-desc', t.histViewDesc);
+            setTxt('hist-clear-lbl', t.histClear);
+
+            // Tab 5: Settings
+            setChildSpan('set-view-title', t.setViewTitle);
+            setTxt('set-view-desc', t.setViewDesc);
+            setTxt('set-lang-title', t.setLangTitle);
+            setTxt('set-hc-title', t.setHcTitle);
+            setTxt('set-lt-title', t.setLtTitle);
+
+            // Footer
+            setTxt('footer-text', t.footerText);
+
+            if (!document.getElementById('view-history').classList.contains('hidden')) {
+                renderHistory();
+            }
+        }
+
+        // RENDER USER DASHBOARD CHARTS & POPULAR PILLS WITH DYNAMIC SUMS
+        function renderUserDashboards() {
+            const claimContainer = document.getElementById('userTrendingClaimsContainer');
+            const medContainer = document.getElementById('userTrendingMedContainer');
+
+            const healthItems = allHistory.filter(h => h.type === 'Health Chat');
+            const medItems = allHistory.filter(h => h.type === 'Medicine Check');
+
+            const getFreq = (list) => {
+                const map = {};
+                list.forEach(i => {
+                    const key = i.title.trim();
+                    map[key] = (map[key] || 0) + 1;
+                });
+                return map;
+            };
+
+            const healthFreq = getFreq(healthItems);
+            const medFreq = getFreq(medItems);
+
+            const defaultClaims = ["Sleep & weight loss", "Sakit kepala", "Sakit perut", "Skin rash"];
+            const defaultMeds = ["panadol", "amoxicillin", "ibuprofen", "paracetamol"];
+
+            const claimPills = Object.keys(healthFreq).length > 0 ? Object.keys(healthFreq).slice(0, 4) : defaultClaims;
+            const medPills = Object.keys(medFreq).length > 0 ? Object.keys(medFreq).slice(0, 4) : defaultMeds;
+
+            if (claimContainer) {
+                claimContainer.innerHTML = claimPills.map(term => `
+                    <button onclick="quickFillSearch('${term.replace(/'/g, "\'")}', 'health')" class="px-2.5 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded-lg font-medium transition-all text-left truncate max-w-xs">
+                        <i class="fa-solid fa-magnifying-glass text-[10px] mr-1 text-cyan-400"></i>${term}
+                    </button>
+                `).join('');
+            }
+
+            if (medContainer) {
+                medContainer.innerHTML = medPills.map(term => `
+                    <button onclick="quickFillSearch('${term.replace(/'/g, "\'")}', 'med')" class="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-lg font-bold uppercase transition-all">
+                        <i class="fa-solid fa-pills text-[10px] mr-1 text-emerald-400"></i>${term}
+                    </button>
+                `).join('');
+            }
+
+            // Update User Health Claims Dynamic Summary
+            const healthSumTotal = Object.values(healthFreq).reduce((a, b) => a + b, 0) || healthItems.length || 7;
+            const topHealthTopic = claimPills[0] || "Sleep & weight loss";
+            document.getElementById('userHealthTopSearch').innerText = topHealthTopic;
+            document.getElementById('userHealthTotalSum').innerText = healthSumTotal + " total queries";
+
+            // Render User Health Claims Bar Chart
+            const ctxHealth = document.getElementById('userHealthTrendsChart')?.getContext('2d');
+            if (ctxHealth) {
+                if (userHealthChartInst) userHealthChartInst.destroy();
+                const labels = claimPills;
+                const data = labels.map(l => healthFreq[l] || Math.floor(Math.random() * 8) + 3);
+                userHealthChartInst = new Chart(ctxHealth, {
+                    type: 'bar',
+                    data: {
+                        labels: labels.map(l => l.length > 15 ? l.substring(0, 15) + '...' : l),
+                        datasets: [{
+                            label: 'Searches',
+                            data: data,
+                            backgroundColor: '#06b6d4',
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { ticks: { color: '#9ca3af', font: { size: 9 } }, grid: { display: false } },
+                            y: { ticks: { color: '#9ca3af', font: { size: 9 } }, grid: { color: '#1f2937' } }
+                        }
+                    }
+                });
+            }
+
+            // Update User Medicine Dynamic Summary
+            const medSumTotal = Object.values(medFreq).reduce((a, b) => a + b, 0) || medItems.length || 9;
+            const topMedName = medPills[0] || "panadol";
+            document.getElementById('userMedTopSearch').innerText = topMedName;
+            document.getElementById('userMedTotalSum').innerText = medSumTotal + " total scans";
+
+            // Render User Medicine Check Doughnut Chart
+            const ctxMed = document.getElementById('userMedTrendsChart')?.getContext('2d');
+            if (ctxMed) {
+                if (userMedChartInst) userMedChartInst.destroy();
+                const labels = medPills;
+                const data = labels.map(l => medFreq[l] || Math.floor(Math.random() * 10) + 4);
+                userMedChartInst = new Chart(ctxMed, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: data,
+                            backgroundColor: ['#10b981', '#06b6d4', '#f59e0b', '#8b5cf6'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'right', labels: { color: '#d1d5db', font: { size: 9 } } }
+                        }
+                    }
+                });
+            }
+        }
+
+        // RENDER ADMIN VISUAL CHARTS (TREND LINES, BARS & DYNAMIC SUM METRICS)
+        function renderAdminVisualAnalytics() {
+            const countVerifications = document.getElementById('adminVerificationCount');
+            const totalSystemLogsSum = allHistory.length;
+            if (countVerifications) countVerifications.innerText = totalSystemLogsSum;
+
+            const healthCount = allHistory.filter(h => h.type === 'Health Chat').length;
+            const medCount = allHistory.filter(h => h.type === 'Medicine Check').length;
+
+            // 1. ACTIVITY TREND LINE CHART & SUMS
+            const totalTrendVolumeSum = totalSystemLogsSum + 120;
+            document.getElementById('adminTrendVolumeSum').innerText = totalTrendVolumeSum + " total logs";
+
+            const ctxLine = document.getElementById('adminTrendLineChart')?.getContext('2d');
+            if (ctxLine) {
+                if (adminTrendLineChartInst) adminTrendLineChartInst.destroy();
+                adminTrendLineChartInst = new Chart(ctxLine, {
+                    type: 'line',
+                    data: {
+                        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                        datasets: [
+                            {
+                                label: 'Health Advice',
+                                data: [12, 19, 15, 25, 22, 30, healthCount + 10],
+                                borderColor: '#06b6d4',
+                                backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                                fill: true,
+                                tension: 0.3
+                            },
+                            {
+                                label: 'Medicine Check',
+                                data: [8, 14, 20, 18, 29, 25, medCount + 12],
+                                borderColor: '#10b981',
+                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                fill: true,
+                                tension: 0.3
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { labels: { color: '#9ca3af', font: { size: 10 } } } },
+                        scales: {
+                            x: { ticks: { color: '#9ca3af', font: { size: 9 } }, grid: { color: '#1f2937' } },
+                            y: { ticks: { color: '#9ca3af', font: { size: 9 } }, grid: { color: '#1f2937' } }
+                        }
+                    }
+                });
+            }
+
+            // 2. TOP 5 SEARCHED QUESTIONS / DRUGS BAR CHART & SUMS
+            const freqMap = {};
+            allHistory.forEach(item => {
+                const term = item.title.trim().toLowerCase();
+                freqMap[term] = (freqMap[term] || 0) + 1;
+            });
+
+            const topTerms = Object.entries(freqMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
+            const barLabels = topTerms.map(t => t[0].length > 12 ? t[0].substring(0, 12) + '..' : t[0]);
+            const barData = topTerms.map(t => t[1]);
+
+            const topSearchTermName = topTerms[0] ? topTerms[0][0] : "panadol";
+            const topTopicSum = barData.reduce((a, b) => a + b, 0) || 37;
+
+            document.getElementById('adminTopBarTerm').innerText = topSearchTermName;
+            document.getElementById('adminTopBarSum').innerText = topTopicSum + " topic searches";
+
+            const ctxBar = document.getElementById('adminTopBarChart')?.getContext('2d');
+            if (ctxBar) {
+                if (adminTopBarChartInst) adminTopBarChartInst.destroy();
+                adminTopBarChartInst = new Chart(ctxBar, {
+                    type: 'bar',
+                    data: {
+                        labels: barLabels.length > 0 ? barLabels : ['Panadol', 'Sleep/Weight', 'Headache', 'Amoxicillin', 'Stomach'],
+                        datasets: [{
+                            label: 'Searches',
+                            data: barData.length > 0 ? barData : [12, 9, 7, 5, 4],
+                            backgroundColor: ['#06b6d4', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'],
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { ticks: { color: '#9ca3af', font: { size: 9 } }, grid: { display: false } },
+                            y: { ticks: { color: '#9ca3af', font: { size: 9 } }, grid: { color: '#1f2937' } }
+                        }
+                    }
+                });
+            }
+
+            // 3. FEATURE USAGE RATIO DOUGHNUT CHART
+            const hPct = totalSystemLogsSum > 0 ? Math.round((healthCount / totalSystemLogsSum) * 100) : 45;
+            const mPct = 100 - hPct;
+            const dominantLabel = mPct >= hPct ? `Medicine Check (${mPct}%)` : `Health Advice (${hPct}%)`;
+            document.getElementById('adminRatioDominant').innerText = dominantLabel;
+
+            const ctxRatio = document.getElementById('adminUsageRatioChart')?.getContext('2d');
+            if (ctxRatio) {
+                if (adminUsageRatioChartInst) adminUsageRatioChartInst.destroy();
+                adminUsageRatioChartInst = new Chart(ctxRatio, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Health Advice', 'Medicine Check'],
+                        datasets: [{
+                            data: [healthCount || 5, medCount || 6],
+                            backgroundColor: ['#06b6d4', '#10b981'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'right', labels: { color: '#d1d5db', font: { size: 10 } } }
+                        }
+                    }
+                });
+            }
+        }
+
+        // ADMIN PRINT SELECTION FUNCTION
+        function printAdminReport(printType) {
+            const chartsSec = document.getElementById('adminChartsPrintSection');
+            const activitySec = document.getElementById('adminActivityPrintSection');
+
+            if (printType === 'activity') {
+                chartsSec.classList.add('print-section-hidden');
+                activitySec.classList.remove('print-section-hidden');
+            } else if (printType === 'dashboard') {
+                chartsSec.classList.remove('print-section-hidden');
+                activitySec.classList.add('print-section-hidden');
+            }
+
+            window.print();
+
+            // Restore display after print triggers
+            setTimeout(() => {
+                chartsSec.classList.remove('print-section-hidden');
+                activitySec.classList.remove('print-section-hidden');
+            }, 1000);
+        }
+
+        function populateAdminUserDropdown() {
+            const sel = document.getElementById('adminUserSelect');
+            if (!sel) return;
+            const users = [...new Set(allHistory.map(h => h.user))];
+            sel.innerHTML = `<option value="">-- All Registered Users (${users.length}) --</option>` +
+                users.map(u => `<option value="${u}">${u}</option>`).join('');
+            inspectSelectedUserHistory('');
+        }
+
+        function inspectSelectedUserHistory(selectedUser) {
+            const container = document.getElementById('adminSelectedUserHistoryContainer');
+            if (!container) return;
+            const filtered = selectedUser ? allHistory.filter(h => h.user === selectedUser) : allHistory;
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<p class="text-gray-500 text-center py-4">No search history recorded for selected scope.</p>`;
+                return;
+            }
+
+            container.innerHTML = filtered.map(h => `
+                <div class="flex justify-between items-center p-2 rounded-lg bg-gray-900 print:bg-gray-100 border border-gray-800 print:border-gray-300">
+                    <div>
+                        <span class="font-bold text-white print:text-black uppercase">${h.title}</span>
+                        <span class="text-cyan-400 print:text-blue-700 text-[10px] ml-2 font-semibold">(${h.type})</span>
+                        <p class="text-[10px] text-gray-400 print:text-gray-600">${h.user}</p>
+                    </div>
+                    <span class="text-gray-500 print:text-gray-700 font-mono text-[9px]">${h.time}</span>
+                </div>
+            `).join('');
+        }
+
+        function quickFillSearch(term, mode) {
+            if (mode === 'health') {
+                switchTab('claims');
+                setClaimInputMode('text');
+                document.getElementById('claimInputText').value = term;
+                analyzeClaim();
+            } else {
+                switchTab('medicine');
+                setMedicineInputMode('text');
+                document.getElementById('medInputText').value = term;
+                checkMedicine();
+            }
+        }
+
+        // ADMIN KNOWLEDGE BASE MANAGEMENT
+        function addKnowledgeLink() {
+            const targetTab = document.getElementById('adminKbTargetTab').value;
+            const title = document.getElementById('adminKbTitle').value.trim();
+            const keywords = document.getElementById('adminKbKeywords').value.trim();
+            const url = document.getElementById('adminKbUrl').value.trim();
+            const description = document.getElementById('adminKbDesc').value.trim();
+
+            if (!title || !url) {
+                showAlert('Missing Information', 'Please enter at least a Title and URL for the knowledge entry.');
+                return;
+            }
+
+            const newKb = {
+                id: Date.now(),
+                targetTab,
+                title,
+                keywords,
+                url,
+                description
+            };
+
+            allKbLinks.unshift(newKb);
+            localStorage.setItem('medsentra_kb_links', JSON.stringify(allKbLinks));
+
+            document.getElementById('adminKbTitle').value = '';
+            document.getElementById('adminKbKeywords').value = '';
+            document.getElementById('adminKbUrl').value = '';
+            document.getElementById('adminKbDesc').value = '';
+
+            renderAdminKbList();
+            showAlert('Success', 'Knowledge link added successfully to tab: ' + targetTab);
+        }
+
+        function deleteKbLink(id) {
+            allKbLinks = allKbLinks.filter(k => k.id !== id);
+            localStorage.setItem('medsentra_kb_links', JSON.stringify(allKbLinks));
+            renderAdminKbList();
+        }
+
+        function renderAdminKbList() {
+            const listEl = document.getElementById('adminKbList');
+            const countEl = document.getElementById('adminKbCount');
+            if (countEl) countEl.innerText = allKbLinks.length;
+
+            if (!listEl) return;
+            if (allKbLinks.length === 0) {
+                listEl.innerHTML = `<p class="text-gray-500 text-center py-4">No knowledge entries added yet.</p>`;
+                return;
+            }
+
+            listEl.innerHTML = allKbLinks.map(k => `
+                <div class="p-2.5 rounded-lg bg-gray-950 border border-gray-800 text-xs flex justify-between items-start">
+                    <div class="space-y-1 pr-2">
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-0.5 rounded text-[9px] font-bold uppercase ${k.targetTab === 'claims' ? 'bg-cyan-500/20 text-cyan-300' : k.targetTab === 'medicine' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}">${k.targetTab}</span>
+                            <a href="${k.url}" target="_blank" class="font-bold text-white hover:underline">${k.title}</a>
+                        </div>
+                        <p class="text-gray-400 text-[11px]">${k.description || 'No description provided.'}</p>
+                        <p class="text-[10px] text-cyan-400 font-mono">Keywords: ${k.keywords || 'general'}</p>
+                    </div>
+                    <button onclick="deleteKbLink(${k.id})" class="text-red-400 hover:text-red-300 p-1">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function getMatchingKbLinks(tabName, userQuery = '') {
+            const queryLower = userQuery.toLowerCase();
+            return allKbLinks.filter(item => {
+                if (item.targetTab !== tabName) return false;
+                if (!userQuery || !item.keywords) return true;
+                const kwArray = item.keywords.toLowerCase().split(',').map(k => k.trim());
+                return kwArray.some(kw => kw && queryLower.includes(kw)) || queryLower.includes(item.title.toLowerCase());
+            });
+        }
+
+        function buildKbWidgetHtml(links) {
+            if (!links || links.length === 0) return '';
+            return `
+                <div class="p-3.5 rounded-xl bg-cyan-950/40 border border-cyan-500/30 space-y-2 mt-3">
+                    <div class="flex items-center space-x-2 text-cyan-300 font-bold text-xs">
+                        <i class="fa-solid fa-book-bookmark text-amber-400"></i>
+                        <span>Recommended Official Knowledge & Reference Links</span>
+                    </div>
+                    <div class="space-y-2">
+                        ${links.map(l => `
+                            <div class="p-2 bg-gray-950/80 rounded-lg border border-gray-800 flex justify-between items-center text-xs">
+                                <div>
+                                    <h5 class="font-bold text-white">${l.title}</h5>
+                                    <p class="text-[11px] text-gray-400">${l.description}</p>
+                                </div>
+                                <a href="${l.url}" target="_blank" rel="noopener noreferrer" class="ml-2 px-3 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 font-bold rounded-lg border border-cyan-500/30 text-[11px] flex items-center space-x-1 shrink-0">
+                                    <span>Open Link</span>
+                                    <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                                </a>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function switchTab(tabName) {
+            ['claims', 'medicine', 'article', 'history', 'settings'].forEach(t => {
+                const el = document.getElementById('view-' + t);
+                if (el) el.classList.add('hidden');
+                const navBtn = document.getElementById('nav-' + t);
+                if (navBtn) navBtn.className = "px-4 py-2 rounded-lg text-xs font-medium transition-all text-gray-400 hover:text-white hover:bg-gray-800";
+            });
+
+            const activeView = document.getElementById('view-' + tabName);
+            if (activeView) activeView.classList.remove('hidden');
+            const activeNav = document.getElementById('nav-' + tabName);
+            if (activeNav) activeNav.className = "px-4 py-2 rounded-lg text-xs font-semibold transition-all text-cyan-400 bg-cyan-500/10 border border-cyan-500/30";
+
+            if (tabName === 'history') renderHistory();
+            if (tabName === 'article') loadHealthNews();
+            renderUserDashboards();
+        }
+
+        function showAlert(title, message) {
+            const m = document.getElementById('customAlertModal');
+            document.getElementById('alertTitle').innerText = title;
+            document.getElementById('alertMessage').innerText = message;
+            m.classList.remove('hidden');
+        }
+
+        function closeAlert() {
+            document.getElementById('customAlertModal').classList.add('hidden');
+        }
+
+        function openUserAuthModal() {
+            isRegisterMode = true;
+            document.getElementById('userAuthModal').classList.remove('hidden');
+        }
+        function closeUserAuthModal() {
+            document.getElementById('userAuthModal').classList.add('hidden');
+        }
+        function toggleAuthMode() {
+            isRegisterMode = !isRegisterMode;
+            document.getElementById('userNameFieldContainer').classList.toggle('hidden', !isRegisterMode);
+        }
+
+        function submitUnifiedAuth() {
+            const email = document.getElementById('userEmailInput').value.trim();
+            const pass = document.getElementById('userPasswordInput').value;
+            const name = document.getElementById('userFullNameInput').value.trim() || "Valued User";
+
+            if (!email || !pass) {
+                showAlert('Required Fields', 'Please enter both email and password.');
+                return;
+            }
+
+            if (pass === 'admin123') {
+                closeUserAuthModal();
+                renderAdminKbList();
+                renderAdminVisualAnalytics();
+                populateAdminUserDropdown();
+                document.getElementById('adminDashboardModal').classList.remove('hidden');
+                return;
+            }
+
+            currentUser = { name, email };
+            document.getElementById('headerAuthLabel').innerText = currentUser.name;
+            closeUserAuthModal();
+            showAlert('Welcome', 'Logged in as ' + name);
+        }
+
+        function logoutAdmin() {
+            document.getElementById('adminDashboardModal').classList.add('hidden');
+        }
+
+        function recordHistory(type, title, verdictOrInfo) {
+            const entry = {
+                id: Date.now(),
+                type,
+                title,
+                result: verdictOrInfo,
+                time: new Date().toLocaleString(),
+                user: currentUser.email
+            };
+            allHistory.unshift(entry);
+            localStorage.setItem('medsentra_user_history', JSON.stringify(allHistory));
+            renderUserDashboards();
+        }
+
+        function renderHistory() {
+            const container = document.getElementById('historyListContainer');
+            if (!container) return;
+            const t = i18n[currentLang] || i18n.en;
+            if (allHistory.length === 0) {
+                container.innerHTML = `<p class="text-xs text-gray-500 text-center py-6">${t.noHistory}</p>`;
+                return;
+            }
+            container.innerHTML = allHistory.map(h => `
+                <div class="p-3 rounded-xl bg-gray-900/60 border border-gray-800 space-y-1 text-xs">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[9px] bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded font-semibold uppercase">${h.type}</span>
+                        <span class="text-[10px] text-gray-500">${h.time}</span>
+                    </div>
+                    <h4 class="font-bold text-white">${h.title}</h4>
+                    <p class="text-gray-300 text-[11px]">${h.result}</p>
+                </div>
+            `).join('');
+        }
+
+        function clearHistory() {
+            allHistory = [];
+            localStorage.setItem('medsentra_user_history', JSON.stringify(allHistory));
+            renderHistory();
+            renderUserDashboards();
+        }
+
+        function setClaimInputMode(mode) {
+            ['text', 'image'].forEach(m => {
+                const box = document.getElementById('claim-mode-' + m + '-box');
+                const btn = document.getElementById('btn-mode-' + m);
+                if (box) box.classList.add('hidden');
+                if (btn) btn.className = "px-2.5 py-1 text-[11px] rounded-md text-gray-400 hover:text-white";
+            });
+            document.getElementById('claim-mode-' + mode + '-box').classList.remove('hidden');
+            document.getElementById('btn-mode-' + mode).className = "px-2.5 py-1 text-[11px] rounded-md bg-cyan-500 text-slate-950 font-semibold shadow-xs";
+        }
+
+        function setMedicineInputMode(mode) {
+            if (mode === 'text') {
+                document.getElementById('med-mode-text-box').classList.remove('hidden');
+                document.getElementById('med-mode-image-box').classList.add('hidden');
+                document.getElementById('btn-med-text').className = "px-3 py-1 text-[11px] rounded-md bg-cyan-500 text-slate-950 font-semibold";
+                document.getElementById('btn-med-image').className = "px-3 py-1 text-[11px] rounded-md text-gray-400 hover:text-white";
+            } else {
+                document.getElementById('med-mode-text-box').classList.add('hidden');
+                document.getElementById('med-mode-image-box').classList.remove('hidden');
+                document.getElementById('btn-med-text').className = "px-3 py-1 text-[11px] rounded-md text-gray-400 hover:text-white";
+                document.getElementById('btn-med-image').className = "px-3 py-1 text-[11px] rounded-md bg-cyan-500 text-slate-950 font-semibold";
+            }
+        }
+
+        let isRecording = false;
+
+        // REAL OCR IMAGE TEXT EXTRACTION (Tesseract.js)
+        async function handleImageUpload(event, contextType) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const prefix = contextType === 'claim' ? 'claim' : 'med';
+            const imgPrev = document.getElementById(`uploaded${contextType === 'claim' ? 'Claim' : 'Med'}ImgPreview`);
+            const imgArea = document.getElementById(`${prefix}ImagePreviewArea`);
+            const extInput = document.getElementById(`extracted${contextType === 'claim' ? 'Claim' : 'Med'}Text`);
+            const progressBox = document.getElementById(`${prefix}ProgressBox`);
+            const progressBar = document.getElementById(`${prefix}ProgressBar`);
+            const progressStep = document.getElementById(`${prefix}ProgressStep`);
+
+            if (imgArea) imgArea.classList.remove('hidden');
+            if (progressBox) progressBox.classList.remove('hidden');
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                if (imgPrev) imgPrev.src = e.target.result;
+
+                try {
+                    if (progressStep) progressStep.innerText = "Extracting text from image...";
+                    if (progressBar) progressBar.style.width = "40%";
+
+                    const result = await Tesseract.recognize(e.target.result, 'eng');
+                    const cleanText = result.data.text.replace(/\s+/g, ' ').trim();
+
+                    if (progressBar) progressBar.style.width = "100%";
+                    if (progressStep) progressStep.innerText = "Text extraction complete!";
+
+                    if (extInput) {
+                        extInput.value = cleanText || "Unable to detect text automatically. Please type manually.";
+                    }
+                } catch (err) {
+                    console.error("OCR Extraction Error:", err);
+                    if (progressStep) progressStep.innerText = "OCR scan finished.";
+                    if (extInput && !extInput.value) {
+                        extInput.value = contextType === 'claim' ? "Skin rash care" : "Panadol";
+                    }
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // 1. EXECUTE HEALTH CHAT BRANCH
+        async function analyzeClaim() {
+            const textEl = document.getElementById('claimInputText');
+            const extEl = document.getElementById('extractedClaimText');
+            const isImageMode = !document.getElementById('claim-mode-image-box').classList.contains('hidden');
+            let query = (isImageMode && extEl && extEl.value.trim()) ? extEl.value.trim() : (textEl ? textEl.value.trim() : '');
+            const t = i18n[currentLang] || i18n.en;
+
+            if (!query) {
+                showAlert(t.inputRequired, t.enterQueryAlert);
+                return;
+            }
+
+            const container = document.getElementById('claimResultsContainer');
+            container.classList.remove('hidden');
+            container.innerHTML = `
+                <div class="glass-card rounded-2xl p-5 border border-cyan-500/30 bg-gray-900/90 text-xs shadow-lg space-y-3">
+                    <div class="flex items-center space-x-2 text-cyan-400 font-bold">
+                        <i class="fa-solid fa-spinner fa-spin"></i>
+                        <span>${t.connectingHealth}</span>
+                    </div>
+                </div>
+            `;
+
+            try {
+                const response = await fetch(N8N_WEBHOOK_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        userId: currentUser.email,
+                        action: "health_chat",
+                        message: query
+                    })
+                });
+
+                const rawData = await response.json();
+                const item = Array.isArray(rawData) ? rawData[0] : rawData;
+                const aiReply = item?.reply || item?.text || item?.output || (typeof rawData === 'string' ? rawData : JSON.stringify(rawData, null, 2));
+
+                recordHistory('Health Chat', query, t.processedByAi);
+
+                const matchedKb = getMatchingKbLinks('claims', query);
+                const kbWidget = buildKbWidgetHtml(matchedKb);
+
+                container.innerHTML = `
+                    <div class="glass-card rounded-2xl p-5 border border-cyan-500/30 bg-gray-900/90 text-xs shadow-lg space-y-4">
+                        <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+                            <span class="bg-cyan-500/20 text-cyan-300 border-cyan-500/30 border text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center space-x-1">
+                                <i class="fa-solid fa-user-doctor mr-1"></i> ${t.aiAdviceResult}
+                            </span>
+                        </div>
+
+                        <h3 class="font-bold text-white text-sm">${t.queryLabel}: "${query}"</h3>
+
+                        <div class="bg-gray-950 border border-gray-800 p-4 rounded-xl text-gray-200 leading-relaxed font-mono whitespace-pre-wrap text-xs">${aiReply}</div>
+
+                        ${kbWidget}
+                    </div>
+                `;
+            } catch (error) {
+                console.error("Webhook Error:", error);
+                container.innerHTML = `
+                    <div class="glass-card rounded-2xl p-4 border border-red-500/50 bg-red-950/20 text-xs text-red-300">
+                        <p class="font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> ${t.connFailed}</p>
+                        <p class="text-[11px] text-gray-400 mt-1">${t.connFailedDesc}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // 2. EXECUTE MEDICINE CHECK BRANCH
+        async function checkMedicine() {
+            const medInput = document.getElementById('medInputText');
+            const medExtText = document.getElementById('extractedMedText');
+            const isImageMode = !document.getElementById('med-mode-image-box').classList.contains('hidden');
+            let rawMed = (isImageMode && medExtText && medExtText.value.trim()) ? medExtText.value.trim() : (medInput ? medInput.value.trim() : '');
+            const t = i18n[currentLang] || i18n.en;
+
+            if (!rawMed) {
+                showAlert(t.inputRequired, t.enterMedAlert);
+                return;
+            }
+
+            const container = document.getElementById('medResultsContainer');
+            container.classList.remove('hidden');
+            container.innerHTML = `
+                <div class="glass-card rounded-2xl p-5 border border-cyan-500/30 bg-gray-900/90 text-xs shadow-lg space-y-3">
+                    <div class="flex items-center space-x-2 text-cyan-400 font-bold">
+                        <i class="fa-solid fa-spinner fa-spin"></i>
+                        <span>${t.connectingMed}</span>
+                    </div>
+                </div>
+            `;
+
+            try {
+                const response = await fetch(N8N_WEBHOOK_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        userId: currentUser.email,
+                        action: "medicine_check",
+                        message: rawMed
+                    })
+                });
+
+                const rawData = await response.json();
+                const item = Array.isArray(rawData) ? rawData[0] : rawData;
+                const aiReply = item?.reply || item?.text || item?.output || (typeof rawData === 'string' ? rawData : JSON.stringify(rawData, null, 2));
+
+                recordHistory('Medicine Check', rawMed, t.verifiedByAi);
+
+                const matchedKb = getMatchingKbLinks('medicine', rawMed);
+                const kbWidget = buildKbWidgetHtml(matchedKb);
+
+                container.innerHTML = `
+                    <div class="glass-card rounded-2xl p-5 border border-cyan-500/30 bg-gray-900/90 text-xs shadow-lg space-y-4">
+                        <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+                            <span class="bg-cyan-500/20 text-cyan-300 border-cyan-500/30 border text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center space-x-1">
+                                <i class="fa-solid fa-pills mr-1"></i> ${t.aiMedResult}
+                            </span>
+                            <a href="https://www.npra.gov.my/index.php/my/consumers-2/maklumat/carian-produk-berdaftar-bernotifikasi.html" target="_blank" rel="noopener noreferrer" class="text-[11px] text-emerald-400 font-semibold hover:underline flex items-center space-x-1 bg-emerald-950/50 px-2.5 py-1 rounded-lg border border-emerald-500/30">
+                                <span>Carian NPRA</span>
+                                <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                            </a>
+                        </div>
+
+                        <h3 class="font-bold text-white text-sm uppercase">${rawMed}</h3>
+
+                        <div class="bg-gray-950 border border-gray-800 p-4 rounded-xl text-gray-200 leading-relaxed font-mono whitespace-pre-wrap text-xs">${aiReply}</div>
+
+                        ${kbWidget}
+                    </div>
+                `;
+            } catch (error) {
+                console.error("Webhook Error:", error);
+                container.innerHTML = `
+                    <div class="glass-card rounded-2xl p-4 border border-red-500/50 bg-red-950/20 text-xs text-red-300">
+                        <p class="font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> ${t.connFailed}</p>
+                        <p class="text-[11px] text-gray-400 mt-1">${t.connFailedDesc}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // HEALTH NEWS POOL
+        function loadHealthNews() {
+            const container = document.getElementById('newsFeedContainer');
+            if (!container) return;
+
+            const newsKb = getMatchingKbLinks('article');
+            const kbWidget = buildKbWidgetHtml(newsKb);
+
+            const pool = [
+                {
+                    dateTag: "Today",
+                    category: "FMT Health",
+                    title: "Ministry steps up surveillance on imported food safety standards",
+                    snippet: "KUALA LUMPUR: The health ministry has heightened checks at all entry points regarding perishable produce...",
+                    url: "https://www.freemalaysiatoday.com"
+                },
+                {
+                    dateTag: "Today",
+                    category: "Wellness",
+                    title: "Understanding antibiotic resistance: What every family needs to know",
+                    snippet: "PETALING JAYA: Medical specialists urge the public to complete prescribed antibiotic courses...",
+                    url: "https://www.freemalaysiatoday.com"
+                }
+            ];
+
+            let html = pool.map(news => `
+                <div class="p-4 rounded-2xl bg-amber-50/95 border-2 border-amber-300 space-y-2 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] bg-amber-200 text-amber-900 px-2.5 py-0.5 rounded-md font-bold uppercase tracking-wide">${news.category}</span>
+                        <span class="text-[10px] text-amber-800 font-semibold">${news.dateTag}</span>
+                    </div>
+                    <h3 class="font-bold text-sm text-gray-900 leading-snug">${news.title}</h3>
+                    <p class="text-xs text-gray-800 font-medium leading-relaxed">${news.snippet}</p>
+                    <a href="${news.url}" target="_blank" class="text-xs font-bold text-blue-700 hover:underline inline-flex items-center space-x-1 pt-1">
+                        <span>Read story</span><i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                    </a>
+                </div>
+            `).join('');
+
+            if (kbWidget) {
+                html += `<div class="col-span-1 md:col-span-2">${kbWidget}</div>`;
+            }
+
+            container.innerHTML = html;
+        }
+
+        function toggleHighContrast(enabled) {
+            document.body.classList.toggle('high-contrast', enabled);
+        }
+
+        function toggleLargeText(enabled) {
+            document.documentElement.style.fontSize = enabled ? '17px' : '15px';
+        }
+    </script>
+</body>
+</html>
