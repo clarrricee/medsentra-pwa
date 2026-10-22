@@ -107,7 +107,7 @@
             </button>
         </nav>
 
-        <!-- RIGHT HEADER -->
+        <!-- RIGHT HEADER (AUTH & LANGUAGE) -->
         <div class="flex items-center space-x-3 ml-2">
             <div class="relative flex items-center bg-gray-900 border border-gray-800 rounded-full px-3 py-1 mr-2">
                 <i class="fa-solid fa-globe text-cyan-400 text-xs mr-1.5"></i>
@@ -119,10 +119,10 @@
                 </select>
             </div>
 
-            <button onclick="openUserAuthModal()" class="bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-bold text-xs px-4 py-2 rounded-lg shadow-md transition-all flex items-center space-x-1.5">
-                <i class="fa-solid fa-user-shield text-[11px]"></i>
-                <span id="headerAuthLabel">Login / Sign Up</span>
-            </button>
+            <!-- DYNAMIC USER AUTH CONTAINER -->
+            <div id="authHeaderContainer">
+                <!-- Dynamically rendered via updateAuthHeaderUI() -->
+            </div>
         </div>
     </header>
 
@@ -147,6 +147,19 @@
 
     <!-- MAIN CONTAINER -->
     <main class="flex-1 max-w-4xl w-full mx-auto p-3 md:p-5 pb-20 md:pb-6 overflow-y-auto space-y-4">
+
+        <!-- LOGIN REMINDER BANNER FOR UNAUTHENTICATED USERS -->
+        <div id="loginReminderBanner" class="glass-card p-3 rounded-xl border border-cyan-500/40 bg-gradient-to-r from-cyan-950/60 to-emerald-950/60 flex items-center justify-between text-xs text-cyan-200 no-print shadow-md">
+            <div class="flex items-center space-x-2.5">
+                <i class="fa-solid fa-circle-info text-cyan-400 text-base shrink-0"></i>
+                <p class="leading-tight">
+                    <strong class="text-white font-semibold">Recommended:</strong> Please <button onclick="openUserAuthModal()" class="underline text-cyan-300 font-bold hover:text-white">log in or sign up</button> before performing searches so your verification history is saved to your account.
+                </p>
+            </div>
+            <button onclick="openUserAuthModal()" class="ml-3 px-3 py-1.5 bg-gradient-to-r from-cyan-500 to-emerald-500 text-slate-950 font-bold text-[11px] rounded-lg hover:from-cyan-400 hover:to-emerald-400 shrink-0 shadow-sm transition-all">
+                Log In Now
+            </button>
+        </div>
 
         <!-- TAB 1: HEALTH CLAIMS -->
         <section id="view-claims" class="space-y-4">
@@ -210,12 +223,17 @@
 
                 <div id="claim-mode-text-box" class="space-y-2">
                     <textarea id="claimInputText" rows="3" class="w-full bg-gray-900 border border-gray-800 rounded-xl p-3 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-all leading-relaxed" placeholder="e.g. My leg hurts / Sakit kepala / Sakit perut / Skin rash / Is it true that sleep can help me reduce weight? / I have high morning blood sugar...">Is it true that sleep can help me reduce weight?</textarea>
-                    <button id="btn-analyze-text" onclick="analyzeClaim()" class="w-full py-2.5 bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center space-x-1.5 mt-2">
-                        <i class="fa-solid fa-magnifying-glass font-bold"></i>
-                        <span id="btn-analyze-text-lbl">Get Health Guidance & Fact Check</span>
-                    </button>
+                    <div class="flex gap-2 mt-2">
+                        <button id="btn-analyze-text" onclick="analyzeClaim()" class="flex-1 py-2.5 bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center space-x-1.5">
+                            <i class="fa-solid fa-magnifying-glass font-bold"></i>
+                            <span id="btn-analyze-text-lbl">Get Health Guidance & Fact Check</span>
+                        </button>
+                        <button onclick="clearClaimResults()" class="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold text-xs rounded-xl border border-gray-700 transition-all flex items-center space-x-1">
+                            <i class="fa-solid fa-eraser"></i>
+                            <span>Clear Input</span>
+                        </button>
+                    </div>
                 </div>
-
 
                 <div id="claim-mode-image-box" class="hidden space-y-3">
                     <div class="border border-dashed border-cyan-500/40 rounded-xl p-5 text-center hover:border-cyan-400 transition-colors cursor-pointer bg-cyan-950/20" onclick="document.getElementById('claimImageFile').click()">
@@ -247,6 +265,9 @@
                                 <button onclick="analyzeClaim()" class="px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-emerald-500 text-slate-950 font-bold text-xs rounded-xl hover:from-cyan-400 hover:to-emerald-400 shrink-0 shadow-md">
                                     Analyze Health Advice
                                 </button>
+                                <button onclick="clearClaimResults()" class="px-3 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold text-xs rounded-xl border border-gray-700 shrink-0">
+                                    Clear
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -265,7 +286,7 @@
                             <i class="fa-solid fa-pills text-cyan-400"></i>
                             <span>Medicine & Vision Scanner</span>
                         </h2>
-                        <p id="med-view-desc" class="text-xs text-gray-400 mt-0.5">Type a drug name or upload a photo of a label/box to read text automatically.</p>
+                        <p id="med-view-desc" class="text-xs text-gray-400 mt-0.5">Type a drug name or upload a photo containing a QR code to decode automatically.</p>
                     </div>
                     <!-- OFFICIAL NPRA SEARCH LINK -->
                     <a href="https://www.npra.gov.my/index.php/my/consumers-2/maklumat/carian-produk-berdaftar-bernotifikasi.html" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-[11px] font-bold rounded-xl text-emerald-400 border border-emerald-500/30 flex items-center space-x-1.5 shrink-0 transition-all shadow-sm">
@@ -316,7 +337,7 @@
 
                 <div class="flex space-x-1 bg-gray-900 p-0.5 rounded-lg border border-gray-800 w-fit">
                     <button onclick="setMedicineInputMode('text')" id="btn-med-text" class="px-3 py-1 text-[11px] rounded-md bg-cyan-500 text-slate-950 font-semibold">Type Name</button>
-                    <button onclick="setMedicineInputMode('image')" id="btn-med-image" class="px-3 py-1 text-[11px] rounded-md text-gray-400 hover:text-white">Upload Image</button>
+                    <button onclick="setMedicineInputMode('image')" id="btn-med-image" class="px-3 py-1 text-[11px] rounded-md text-gray-400 hover:text-white">Upload QR Image</button>
                 </div>
 
                 <div id="med-mode-text-box" class="space-y-2.5">
@@ -325,8 +346,8 @@
 
                 <div id="med-mode-image-box" class="hidden space-y-3">
                     <div class="border border-dashed border-cyan-500/40 rounded-xl p-5 text-center hover:border-cyan-400 transition-colors cursor-pointer bg-cyan-950/20" onclick="document.getElementById('medImageFile').click()">
-                        <i class="fa-solid fa-prescription-bottle-medical text-3xl text-cyan-400 mb-2"></i>
-                        <p id="med-img-upload-lbl" class="text-xs text-gray-200 font-bold">Click to upload photo of a pill, medicine box, or bottle</p>
+                        <i class="fa-solid fa-qrcode text-3xl text-cyan-400 mb-2"></i>
+                        <p id="med-img-upload-lbl" class="text-xs text-gray-200 font-bold">Click to upload photo containing a Medicine QR Code</p>
                         <input type="file" id="medImageFile" accept="image/*" class="hidden" onchange="handleImageUpload(event, 'med')">
                     </div>
 
@@ -335,31 +356,40 @@
 
                         <div id="medProgressBox" class="text-left bg-gray-950 p-2.5 rounded-xl border border-gray-800 space-y-1">
                             <div class="flex justify-between items-center">
-                                <span class="text-[10px] font-bold text-cyan-400 uppercase tracking-wider" id="medProgressStep">Extracting text from image...</span>
-                                <i class="fa-solid fa-spinner fa-spin text-cyan-400 text-xs" id="medSpinner"></i>
+                                <span class="text-[10px] font-bold text-cyan-400 uppercase tracking-wider" id="medProgressStep">Image ready for scanning</span>
+                                <i class="fa-solid fa-check text-emerald-400 text-xs" id="medSpinner"></i>
                             </div>
                             <div class="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
-                                <div id="medProgressBar" class="bg-gradient-to-r from-cyan-500 to-emerald-400 h-full w-1/3 transition-all duration-300"></div>
+                                <div id="medProgressBar" class="bg-gradient-to-r from-cyan-500 to-emerald-400 h-full w-full"></div>
                             </div>
                         </div>
 
                         <div class="space-y-1.5 text-left pt-1">
                             <label class="text-[10px] font-bold text-gray-300 uppercase tracking-wider flex items-center justify-between">
-                                <span>Extracted Substance / Drug Name (Editable):</span>
+                                <span>Selected Image Ready for n8n Workflow:</span>
                             </label>
                             <div class="flex gap-2">
-                                <input type="text" id="extractedMedText" class="flex-1 bg-gray-950 border border-cyan-500/60 rounded-xl p-2.5 text-xs text-cyan-200 font-semibold focus:outline-none focus:border-cyan-400" placeholder="Extracted medicine name will appear here...">
+                                <input type="text" id="extractedMedText" class="flex-1 bg-gray-950 border border-cyan-500/60 rounded-xl p-2.5 text-xs text-cyan-200 font-semibold focus:outline-none focus:border-cyan-400" placeholder="Extracted QR medicine name will appear here..." readonly>
                                 <button onclick="checkMedicine()" class="px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-emerald-500 text-slate-950 font-bold text-xs rounded-xl hover:from-cyan-400 hover:to-emerald-400 shrink-0 shadow-md">
-                                    Verify Medicine
+                                    Scan QR via n8n
+                                </button>
+                                <button onclick="clearMedResults()" class="px-3 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold text-xs rounded-xl border border-gray-700 shrink-0">
+                                    Clear
                                 </button>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <button onclick="checkMedicine()" class="w-full py-2.5 bg-gradient-to-r from-cyan-500 to-emerald-500 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-all">
-                    <span id="btn-med-check-lbl">Check Safety, Dosage & Legal Classification</span>
-                </button>
+                <div class="flex gap-2">
+                    <button onclick="checkMedicine()" class="flex-1 py-2.5 bg-gradient-to-r from-cyan-500 to-emerald-500 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-all">
+                        <span id="btn-med-check-lbl">Check Safety, Dosage & Legal Classification</span>
+                    </button>
+                    <button onclick="clearMedResults()" class="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold text-xs rounded-xl border border-gray-700 transition-all flex items-center space-x-1">
+                        <i class="fa-solid fa-eraser"></i>
+                        <span>Clear Input</span>
+                    </button>
+                </div>
             </div>
 
             <div id="medResultsContainer" class="hidden space-y-4"></div>
@@ -703,8 +733,11 @@
 
     <!-- JAVASCRIPT EXECUTION ENGINE -->
     <script>
-        // WEBHOOK ENDPOINT (PRODUCTION)
-        const N8N_WEBHOOK_URL = "https://palatable-ranger-dole.ngrok-free.dev/webhook/medsentra-request";
+        // LIVE NGROK WEBHOOK ENDPOINTS
+        const YOUR_N8N_WEBHOOK_URL = "https://palatable-ranger-dole.ngrok-free.dev/webhook/medsentra-qr";
+        const HEALTH_CHAT_WEBHOOK_URL = "https://palatable-ranger-dole.ngrok-free.dev/webhook/medsentra-request";
+
+        let selectedMedFile = null;
 
         // SEED DEFAULT HISTORY FOR INITIAL DASHBOARD VISUALIZATIONS
         const defaultSampleHistory = [
@@ -738,7 +771,7 @@
         ];
 
         let currentLang = 'en';
-        let currentUser = { email: "testuser@medsentra.my", name: "Test User" };
+        let currentUser = JSON.parse(localStorage.getItem('medsentra_current_user') || 'null');
         let allHistory = JSON.parse(localStorage.getItem('medsentra_user_history') || JSON.stringify(defaultSampleHistory));
         let allKbLinks = JSON.parse(localStorage.getItem('medsentra_kb_links') || JSON.stringify(defaultKbLinks));
         let isRegisterMode = true;
@@ -751,12 +784,84 @@
         let adminUsageRatioChartInst = null;
 
         window.onload = function() {
+            updateAuthHeaderUI();
             updateLocalizedUI();
             loadHealthNews();
             renderAdminKbList();
             renderUserDashboards();
             populateAdminUserDropdown();
         };
+
+        // UPDATE HEADER USER AUTH BUTTONS & REMINDER BANNER
+        function updateAuthHeaderUI() {
+            const container = document.getElementById('authHeaderContainer');
+            const reminderBanner = document.getElementById('loginReminderBanner');
+
+            if (currentUser && currentUser.isLoggedIn) {
+                if (container) {
+                    container.innerHTML = `
+                        <div class="flex items-center space-x-2">
+                            <span class="text-xs font-bold text-cyan-300 bg-cyan-950/80 border border-cyan-500/40 px-3 py-1.5 rounded-lg flex items-center space-x-1.5">
+                                <i class="fa-solid fa-user-check text-emerald-400"></i>
+                                <span>${escapeHtml(currentUser.name)}</span>
+                            </span>
+                            <button onclick="logoutUser()" class="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-bold rounded-lg transition-all flex items-center space-x-1">
+                                <i class="fa-solid fa-right-from-bracket"></i>
+                                <span>Logout</span>
+                            </button>
+                        </div>
+                    `;
+                }
+                if (reminderBanner) reminderBanner.classList.add('hidden');
+            } else {
+                if (container) {
+                    container.innerHTML = `
+                        <button onclick="openUserAuthModal()" class="bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-bold text-xs px-4 py-2 rounded-lg shadow-md transition-all flex items-center space-x-1.5">
+                            <i class="fa-solid fa-user-shield text-[11px]"></i>
+                            <span id="headerAuthLabel">Login / Sign Up</span>
+                        </button>
+                    `;
+                }
+                if (reminderBanner) reminderBanner.classList.remove('hidden');
+            }
+        }
+
+        function logoutUser() {
+            currentUser = null;
+            localStorage.removeItem('medsentra_current_user');
+            updateAuthHeaderUI();
+            showAlert('Logged Out', 'You have been successfully logged out.');
+        }
+
+        // CLEAR SEARCH RESULTS & RESET INPUT FIELDS
+        function clearClaimResults() {
+            const container = document.getElementById('claimResultsContainer');
+            if (container) {
+                container.classList.add('hidden');
+                container.innerHTML = '';
+            }
+            const claimText = document.getElementById('claimInputText');
+            if (claimText) claimText.value = '';
+            const extText = document.getElementById('extractedClaimText');
+            if (extText) extText.value = '';
+            const previewArea = document.getElementById('claimImagePreviewArea');
+            if (previewArea) previewArea.classList.add('hidden');
+        }
+
+        function clearMedResults() {
+            const container = document.getElementById('medResultsContainer');
+            if (container) {
+                container.classList.add('hidden');
+                container.innerHTML = '';
+            }
+            const medText = document.getElementById('medInputText');
+            if (medText) medText.value = '';
+            const extText = document.getElementById('extractedMedText');
+            if (extText) extText.value = '';
+            const previewArea = document.getElementById('medImagePreviewArea');
+            if (previewArea) previewArea.classList.add('hidden');
+            selectedMedFile = null;
+        }
 
         // DICTIONARY MULTI-BAHASA LENGKAP
         const i18n = {
@@ -778,11 +883,11 @@
                 imgUploadTitle: "Upload Photo (Medicine Label, Packaging, or Skin Issue)",
                 imgUploadSub: "Automatic OCR text extraction active.",
                 medViewTitle: "Medicine & Vision Scanner",
-                medViewDesc: "Type a drug name or upload a photo of a label/box to read text automatically.",
+                medViewDesc: "Type a drug name or upload a photo containing a QR code to decode automatically.",
                 btnMedText: "Type Name",
-                btnMedImage: "Upload Image",
+                btnMedImage: "Upload QR Image",
                 medPlaceholder: "Enter medicine or substance name (e.g. Paracetamol, Amoxicillin, Ibuprofen, Bleach)...",
-                medImgUpload: "Click to upload photo of a pill, medicine box, or bottle",
+                medImgUpload: "Click to upload photo containing a Medicine QR Code",
                 medCheckBtn: "Check Safety, Dosage & Legal Classification",
                 newsViewTitle: "Real-Time Health News & Updates",
                 newsSub: "Updated daily with active health advisories.",
@@ -808,7 +913,7 @@
                 verifiedByAi: "Verified by System",
                 inputRequired: "Input Required",
                 enterQueryAlert: "Please enter a health scenario or claim.",
-                enterMedAlert: "Please enter or scan a medicine name."
+                enterMedAlert: "Please enter a medicine name or upload a QR image."
             },
             ms: {
                 headerSub: "Kebenaran Kesihatan & Semakan Ubat",
@@ -828,11 +933,11 @@
                 imgUploadTitle: "Muat Naik Foto (Label Ubat, Pembungkusan, atau Masalah Kulit)",
                 imgUploadSub: "Pengeluaran teks automatik (OCR) diaktifkan.",
                 medViewTitle: "Pengimbas Ubat & Penglihatan",
-                medViewDesc: "Taip nama ubat atau muat naik foto label/kotak untuk membaca teks secara automatik.",
+                medViewDesc: "Taip nama ubat atau muat naik foto kod QR untuk membaca maklumat secara automatik.",
                 btnMedText: "Taip Nama",
-                btnMedImage: "Muat Naik Gambar",
+                btnMedImage: "Muat Naik Foto QR",
                 medPlaceholder: "Masukkan nama ubat atau bahan (cth. Paracetamol, Amoxicillin, Ibuprofen, Peluntur)...",
-                medImgUpload: "Klik untuk muat naik foto pil, kotak ubat, atau botol",
+                medImgUpload: "Klik untuk muat naik foto kod QR ubat",
                 medCheckBtn: "Semak Keselamatan, Dos & Klasifikasi Undang-undang",
                 newsViewTitle: "Berita & Kemaskini Kesihatan Masa Nyata",
                 newsSub: "Dikemaskini setiap hari dengan nasihat kesihatan aktif.",
@@ -858,7 +963,7 @@
                 verifiedByAi: "Disahkan oleh Sistem",
                 inputRequired: "Input Diperlukan",
                 enterQueryAlert: "Sila masukkan senario atau tuntutan kesihatan.",
-                enterMedAlert: "Sila masukkan atau imbas nama ubat."
+                enterMedAlert: "Sila masukkan nama ubat atau muat naik foto QR."
             },
             ta: {
                 headerSub: "சுகாதார உண்மை & மருந்து சரிபார்ப்பு",
@@ -928,11 +1033,11 @@
                 imgUploadTitle: "上传照片（药盒、药品标签或皮肤状况）",
                 imgUploadSub: "已启用自动文字提取 (OCR)。",
                 medViewTitle: "药物与视觉扫描仪",
-                medViewDesc: "输入药物/物品名称或上传照片以自动提取文字与识别。",
+                medViewDesc: "输入药物/物品名称或上传二维码照片以自动解析。",
                 btnMedText: "输入名称",
-                btnMedImage: "上传图片",
+                btnMedImage: "上传二维码图片",
                 medPlaceholder: "输入药物或物质名称（例如 Paracetamol, Amoxicillin...）",
-                medImgUpload: "点击上传药丸、药盒或瓶子的照片",
+                medImgUpload: "点击上传包含药物二维码的照片",
                 medCheckBtn: "检查安全性、剂量及法律分类",
                 newsViewTitle: "实时健康新闻与动态",
                 newsSub: "每日更新健康指南与资讯。",
@@ -961,6 +1066,19 @@
                 enterMedAlert: "请输入或扫描药物名称。"
             }
         };
+
+        function escapeHtml(str) {
+            if (typeof str !== 'string') return str;
+            return str.replace(/[&<>"']/g, function(m) {
+                return {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#039;'
+                }[m];
+            });
+        }
 
         function changeLanguage(lang) {
             currentLang = lang;
@@ -1005,7 +1123,8 @@
             setTxt('mob-lbl-news', t.navNews);
             setTxt('mob-lbl-history', t.navHistory);
             setTxt('mob-lbl-settings', t.navSettings);
-            setTxt('headerAuthLabel', t.loginBtn);
+            const authLbl = document.getElementById('headerAuthLabel');
+            if (authLbl) authLbl.innerText = t.loginBtn;
 
             // Tab 1: Health Claims
             setTxt('claims-badge', t.claimsBadge);
@@ -1058,7 +1177,7 @@
             const medContainer = document.getElementById('userTrendingMedContainer');
 
             const healthItems = allHistory.filter(h => h.type === 'Health Chat');
-            const medItems = allHistory.filter(h => h.type === 'Medicine Check');
+            const medItems = allHistory.filter(h => h.type === 'Medicine Check' || h.type === 'Medicine QR Scan');
 
             const getFreq = (list) => {
                 const map = {};
@@ -1080,7 +1199,7 @@
 
             if (claimContainer) {
                 claimContainer.innerHTML = claimPills.map(term => `
-                    <button onclick="quickFillSearch('${term.replace(/'/g, "\'")}', 'health')" class="px-2.5 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded-lg font-medium transition-all text-left truncate max-w-xs">
+                    <button onclick="quickFillSearch('${term.replace(/'/g, "\\'")}', 'health')" class="px-2.5 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded-lg font-medium transition-all text-left truncate max-w-xs">
                         <i class="fa-solid fa-magnifying-glass text-[10px] mr-1 text-cyan-400"></i>${term}
                     </button>
                 `).join('');
@@ -1088,7 +1207,7 @@
 
             if (medContainer) {
                 medContainer.innerHTML = medPills.map(term => `
-                    <button onclick="quickFillSearch('${term.replace(/'/g, "\'")}', 'med')" class="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-lg font-bold uppercase transition-all">
+                    <button onclick="quickFillSearch('${term.replace(/'/g, "\\'")}', 'med')" class="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-lg font-bold uppercase transition-all">
                         <i class="fa-solid fa-pills text-[10px] mr-1 text-emerald-400"></i>${term}
                     </button>
                 `).join('');
@@ -1169,7 +1288,7 @@
             if (countVerifications) countVerifications.innerText = totalSystemLogsSum;
 
             const healthCount = allHistory.filter(h => h.type === 'Health Chat').length;
-            const medCount = allHistory.filter(h => h.type === 'Medicine Check').length;
+            const medCount = allHistory.filter(h => h.type === 'Medicine Check' || h.type === 'Medicine QR Scan').length;
 
             // 1. ACTIVITY TREND LINE CHART & SUMS
             const totalTrendVolumeSum = totalSystemLogsSum + 120;
@@ -1330,11 +1449,11 @@
             container.innerHTML = filtered.map(h => `
                 <div class="flex justify-between items-center p-2 rounded-lg bg-gray-900 print:bg-gray-100 border border-gray-800 print:border-gray-300">
                     <div>
-                        <span class="font-bold text-white print:text-black uppercase">${h.title}</span>
-                        <span class="text-cyan-400 print:text-blue-700 text-[10px] ml-2 font-semibold">(${h.type})</span>
-                        <p class="text-[10px] text-gray-400 print:text-gray-600">${h.user}</p>
+                        <span class="font-bold text-white print:text-black uppercase">${escapeHtml(h.title)}</span>
+                        <span class="text-cyan-400 print:text-blue-700 text-[10px] ml-2 font-semibold">(${escapeHtml(h.type)})</span>
+                        <p class="text-[10px] text-gray-400 print:text-gray-600">${escapeHtml(h.user)}</p>
                     </div>
-                    <span class="text-gray-500 print:text-gray-700 font-mono text-[9px]">${h.time}</span>
+                    <span class="text-gray-500 print:text-gray-700 font-mono text-[9px]">${escapeHtml(h.time)}</span>
                 </div>
             `).join('');
         }
@@ -1409,10 +1528,10 @@
                     <div class="space-y-1 pr-2">
                         <div class="flex items-center space-x-2">
                             <span class="px-2 py-0.5 rounded text-[9px] font-bold uppercase ${k.targetTab === 'claims' ? 'bg-cyan-500/20 text-cyan-300' : k.targetTab === 'medicine' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}">${k.targetTab}</span>
-                            <a href="${k.url}" target="_blank" class="font-bold text-white hover:underline">${k.title}</a>
+                            <a href="${k.url}" target="_blank" class="font-bold text-white hover:underline">${escapeHtml(k.title)}</a>
                         </div>
-                        <p class="text-gray-400 text-[11px]">${k.description || 'No description provided.'}</p>
-                        <p class="text-[10px] text-cyan-400 font-mono">Keywords: ${k.keywords || 'general'}</p>
+                        <p class="text-gray-400 text-[11px]">${escapeHtml(k.description || 'No description provided.')}</p>
+                        <p class="text-[10px] text-cyan-400 font-mono">Keywords: ${escapeHtml(k.keywords || 'general')}</p>
                     </div>
                     <button onclick="deleteKbLink(${k.id})" class="text-red-400 hover:text-red-300 p-1">
                         <i class="fa-solid fa-trash-can"></i>
@@ -1443,8 +1562,8 @@
                         ${links.map(l => `
                             <div class="p-2 bg-gray-950/80 rounded-lg border border-gray-800 flex justify-between items-center text-xs">
                                 <div>
-                                    <h5 class="font-bold text-white">${l.title}</h5>
-                                    <p class="text-[11px] text-gray-400">${l.description}</p>
+                                    <h5 class="font-bold text-white">${escapeHtml(l.title)}</h5>
+                                    <p class="text-[11px] text-gray-400">${escapeHtml(l.description)}</p>
                                 </div>
                                 <a href="${l.url}" target="_blank" rel="noopener noreferrer" class="ml-2 px-3 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 font-bold rounded-lg border border-cyan-500/30 text-[11px] flex items-center space-x-1 shrink-0">
                                     <span>Open Link</span>
@@ -1517,9 +1636,10 @@
                 return;
             }
 
-            currentUser = { name, email };
-            document.getElementById('headerAuthLabel').innerText = currentUser.name;
+            currentUser = { name, email, isLoggedIn: true };
+            localStorage.setItem('medsentra_current_user', JSON.stringify(currentUser));
             closeUserAuthModal();
+            updateAuthHeaderUI();
             showAlert('Welcome', 'Logged in as ' + name);
         }
 
@@ -1534,7 +1654,7 @@
                 title,
                 result: verdictOrInfo,
                 time: new Date().toLocaleString(),
-                user: currentUser.email
+                user: (currentUser && currentUser.email) ? currentUser.email : 'guest@medsentra.my'
             };
             allHistory.unshift(entry);
             localStorage.setItem('medsentra_user_history', JSON.stringify(allHistory));
@@ -1552,11 +1672,11 @@
             container.innerHTML = allHistory.map(h => `
                 <div class="p-3 rounded-xl bg-gray-900/60 border border-gray-800 space-y-1 text-xs">
                     <div class="flex justify-between items-center">
-                        <span class="text-[9px] bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded font-semibold uppercase">${h.type}</span>
-                        <span class="text-[10px] text-gray-500">${h.time}</span>
+                        <span class="text-[9px] bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded font-semibold uppercase">${escapeHtml(h.type)}</span>
+                        <span class="text-[10px] text-gray-500">${escapeHtml(h.time)}</span>
                     </div>
-                    <h4 class="font-bold text-white">${h.title}</h4>
-                    <p class="text-gray-300 text-[11px]">${h.result}</p>
+                    <h4 class="font-bold text-white">${escapeHtml(h.title)}</h4>
+                    <p class="text-gray-300 text-[11px]">${escapeHtml(h.result)}</p>
                 </div>
             `).join('');
         }
@@ -1593,20 +1713,36 @@
             }
         }
 
-        let isRecording = false;
-
-        // REAL OCR IMAGE TEXT EXTRACTION (Tesseract.js)
+        // HANDLE IMAGE SELECTION & LOCAL PREVIEW
         async function handleImageUpload(event, contextType) {
             const file = event.target.files[0];
             if (!file) return;
 
-            const prefix = contextType === 'claim' ? 'claim' : 'med';
-            const imgPrev = document.getElementById(`uploaded${contextType === 'claim' ? 'Claim' : 'Med'}ImgPreview`);
-            const imgArea = document.getElementById(`${prefix}ImagePreviewArea`);
-            const extInput = document.getElementById(`extracted${contextType === 'claim' ? 'Claim' : 'Med'}Text`);
-            const progressBox = document.getElementById(`${prefix}ProgressBox`);
-            const progressBar = document.getElementById(`${prefix}ProgressBar`);
-            const progressStep = document.getElementById(`${prefix}ProgressStep`);
+            if (contextType === 'med') {
+                selectedMedFile = file;
+                const imgPrev = document.getElementById('uploadedMedImgPreview');
+                const imgArea = document.getElementById('medImagePreviewArea');
+                const extInput = document.getElementById('extractedMedText');
+
+                if (imgArea) imgArea.classList.remove('hidden');
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    if (imgPrev) imgPrev.src = e.target.result;
+                    if (extInput) extInput.value = `Image loaded (${file.name}). Ready to send to n8n workflow.`;
+                };
+                reader.readAsDataURL(file);
+                return;
+            }
+
+            // OCR Extraction logic for Health Claims tab
+            const prefix = 'claim';
+            const imgPrev = document.getElementById('uploadedClaimImgPreview');
+            const imgArea = document.getElementById('claimImagePreviewArea');
+            const extInput = document.getElementById('extractedClaimText');
+            const progressBox = document.getElementById('claimProgressBox');
+            const progressBar = document.getElementById('claimProgressBar');
+            const progressStep = document.getElementById('claimProgressStep');
 
             if (imgArea) imgArea.classList.remove('hidden');
             if (progressBox) progressBox.classList.remove('hidden');
@@ -1616,7 +1752,7 @@
                 if (imgPrev) imgPrev.src = e.target.result;
 
                 try {
-                    if (progressStep) progressStep.innerText = "Extracting text from image...";
+                    if (progressStep) progressStep.innerText = "Reading text from photo...";
                     if (progressBar) progressBar.style.width = "40%";
 
                     const result = await Tesseract.recognize(e.target.result, 'eng');
@@ -1632,7 +1768,7 @@
                     console.error("OCR Extraction Error:", err);
                     if (progressStep) progressStep.innerText = "OCR scan finished.";
                     if (extInput && !extInput.value) {
-                        extInput.value = contextType === 'claim' ? "Skin rash care" : "Panadol";
+                        extInput.value = "Skin rash care";
                     }
                 }
             };
@@ -1664,15 +1800,19 @@
             `;
 
             try {
-                const response = await fetch(N8N_WEBHOOK_URL, {
+                const response = await fetch(HEALTH_CHAT_WEBHOOK_URL, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        userId: currentUser.email,
+                        userId: (currentUser && currentUser.email) ? currentUser.email : 'guest@medsentra.my',
                         action: "health_chat",
                         message: query
                     })
                 });
+
+                if (!response.ok) {
+                    throw new Error(`Server returned HTTP status ${response.status}`);
+                }
 
                 const rawData = await response.json();
                 const item = Array.isArray(rawData) ? rawData[0] : rawData;
@@ -1689,11 +1829,14 @@
                             <span class="bg-cyan-500/20 text-cyan-300 border-cyan-500/30 border text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center space-x-1">
                                 <i class="fa-solid fa-user-doctor mr-1"></i> ${t.aiAdviceResult}
                             </span>
+                            <button onclick="clearClaimResults()" class="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold rounded-lg text-xs flex items-center space-x-1 border border-gray-700 transition-all">
+                                <i class="fa-solid fa-xmark"></i> <span>Clear Result</span>
+                            </button>
                         </div>
 
-                        <h3 class="font-bold text-white text-sm">${t.queryLabel}: "${query}"</h3>
+                        <h3 class="font-bold text-white text-sm">${t.queryLabel}: "${escapeHtml(query)}"</h3>
 
-                        <div class="bg-gray-950 border border-gray-800 p-4 rounded-xl text-gray-200 leading-relaxed font-mono whitespace-pre-wrap text-xs">${aiReply}</div>
+                        <div class="bg-gray-950 border border-gray-800 p-4 rounded-xl text-gray-200 leading-relaxed font-mono whitespace-pre-wrap text-xs">${escapeHtml(aiReply)}</div>
 
                         ${kbWidget}
                     </div>
@@ -1702,27 +1845,131 @@
                 console.error("Webhook Error:", error);
                 container.innerHTML = `
                     <div class="glass-card rounded-2xl p-4 border border-red-500/50 bg-red-950/20 text-xs text-red-300">
-                        <p class="font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> ${t.connFailed}</p>
-                        <p class="text-[11px] text-gray-400 mt-1">${t.connFailedDesc}</p>
+                        <div class="flex justify-between items-center">
+                            <p class="font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> ${t.connFailed}</p>
+                            <button onclick="clearClaimResults()" class="px-2 py-1 bg-red-900/40 text-red-300 rounded text-[10px]">Clear</button>
+                        </div>
+                        <p class="text-[11px] text-gray-400 mt-1">${escapeHtml(error.message || t.connFailedDesc)}</p>
                     </div>
                 `;
             }
         }
 
-        // 2. EXECUTE MEDICINE CHECK BRANCH
+        // 2. EXECUTE MEDICINE CHECK / QR WORKFLOW BRANCH
         async function checkMedicine() {
             const medInput = document.getElementById('medInputText');
             const medExtText = document.getElementById('extractedMedText');
             const isImageMode = !document.getElementById('med-mode-image-box').classList.contains('hidden');
-            let rawMed = (isImageMode && medExtText && medExtText.value.trim()) ? medExtText.value.trim() : (medInput ? medInput.value.trim() : '');
+            const container = document.getElementById('medResultsContainer');
             const t = i18n[currentLang] || i18n.en;
+
+            // BRANCH A: QR IMAGE SCANNING VIA N8N WEBHOOK
+            if (isImageMode && selectedMedFile) {
+                container.classList.remove('hidden');
+                container.innerHTML = `
+                    <div class="glass-card rounded-2xl p-5 border border-cyan-500/30 bg-gray-900/90 text-xs shadow-lg space-y-3">
+                        <div class="flex items-center space-x-2 text-cyan-400 font-bold">
+                            <i class="fa-solid fa-qrcode fa-spin"></i>
+                            <span>Uploading image & scanning QR code via n8n...</span>
+                        </div>
+                    </div>
+                `;
+
+                try {
+                    const formData = new FormData();
+                    formData.append('data', selectedMedFile);
+
+                    const response = await fetch(YOUR_N8N_WEBHOOK_URL, {
+                        method: "POST",
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Server returned HTTP status ${response.status}`);
+                    }
+
+                    const rawData = await response.json();
+                    const item = Array.isArray(rawData) ? rawData[0] : rawData;
+
+                    if (!item) {
+                        throw new Error("Invalid response format received from n8n webhook.");
+                    }
+
+                    const isSuccess = item.success !== false;
+                    const medName = item.medicineName || item.dg || "Unidentified QR Product";
+                    const instructions = item.instructions || item.in || "No specific dosage instructions provided.";
+                    const msg = item.message || "";
+                    const imgUrl = item.imageUrl || item.url || "";
+
+                    if (medExtText) medExtText.value = medName;
+
+                    recordHistory('Medicine QR Scan', medName, isSuccess ? 'QR Decoded Successfully' : 'QR Scan Guidance');
+
+                    const matchedKb = getMatchingKbLinks('medicine', medName);
+                    const kbWidget = buildKbWidgetHtml(matchedKb);
+
+                    if (isSuccess) {
+                        container.innerHTML = `
+                            <div class="glass-card rounded-2xl p-5 border border-emerald-500/30 bg-gray-900/90 text-xs shadow-lg space-y-4">
+                                <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+                                    <span class="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 border text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center space-x-1">
+                                        <i class="fa-solid fa-qrcode mr-1"></i> QR Medicine Scan Result
+                                    </span>
+                                    <div class="flex items-center space-x-2">
+                                        <a href="https://www.npra.gov.my/index.php/my/consumers-2/maklumat/carian-produk-berdaftar-bernotifikasi.html" target="_blank" rel="noopener noreferrer" class="text-[11px] text-emerald-400 font-semibold hover:underline flex items-center space-x-1 bg-emerald-950/50 px-2.5 py-1 rounded-lg border border-emerald-500/30">
+                                            <span>Carian NPRA</span>
+                                            <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                                        </a>
+                                        <button onclick="clearMedResults()" class="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold rounded-lg text-xs flex items-center space-x-1 border border-gray-700 transition-all">
+                                            <i class="fa-solid fa-xmark"></i> <span>Clear</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="space-y-3">
+                                    <div class="flex flex-col md:flex-row gap-4 items-start">
+                                        ${imgUrl ? `<img src="${imgUrl}" alt="Scanned QR Medicine" class="w-28 h-28 object-cover rounded-xl border border-gray-700 shrink-0">` : ''}
+                                        <div class="space-y-2 flex-1">
+                                            <h3 class="font-bold text-white text-base uppercase text-emerald-400">${escapeHtml(medName)}</h3>
+                                            ${msg ? `<p class="text-xs text-cyan-300 font-medium">${escapeHtml(msg)}</p>` : ''}
+                                        </div>
+                                    </div>
+
+                                    <div class="bg-gray-950 border border-gray-800 p-4 rounded-xl text-gray-200 space-y-1.5">
+                                        <h4 class="font-bold text-xs text-cyan-400 flex items-center space-x-1">
+                                            <i class="fa-solid fa-file-medical"></i>
+                                            <span>Instructions & Usage Guidance:</span>
+                                        </h4>
+                                        <p class="text-xs text-gray-300 leading-relaxed whitespace-pre-wrap">${escapeHtml(instructions)}</p>
+                                    </div>
+
+                                    <div class="p-3 bg-amber-950/30 border border-amber-500/30 rounded-xl text-[11px] text-amber-200 flex items-start space-x-2">
+                                        <i class="fa-solid fa-shield-cat text-amber-400 text-sm mt-0.5 shrink-0"></i>
+                                        <p><strong>Important Safety Notice:</strong> Standard QR code scanning displays details encoded within standard 2D barcodes. Decoding a QR code alone does not verify or guarantee a medicine's physical authenticity or official legal registration. Always consult licensed healthcare professionals and check official regulatory databases (e.g. NPRA).</p>
+                                    </div>
+                                </div>
+
+                                ${kbWidget}
+                            </div>
+                        `;
+                    } else {
+                        renderKkmGuidanceCard(container, msg);
+                    }
+                } catch (error) {
+                    console.error("QR Scan Error:", error);
+                    renderKkmGuidanceCard(container, error.message);
+                }
+                return;
+            }
+
+            // BRANCH B: TEXT DRUG NAME VERIFICATION
+            let rawMed = (isImageMode && medExtText && medExtText.value.trim()) ? medExtText.value.trim() : (medInput ? medInput.value.trim() : '');
 
             if (!rawMed) {
                 showAlert(t.inputRequired, t.enterMedAlert);
                 return;
             }
 
-            const container = document.getElementById('medResultsContainer');
             container.classList.remove('hidden');
             container.innerHTML = `
                 <div class="glass-card rounded-2xl p-5 border border-cyan-500/30 bg-gray-900/90 text-xs shadow-lg space-y-3">
@@ -1734,15 +1981,19 @@
             `;
 
             try {
-                const response = await fetch(N8N_WEBHOOK_URL, {
+                const response = await fetch(HEALTH_CHAT_WEBHOOK_URL, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        userId: currentUser.email,
+                        userId: (currentUser && currentUser.email) ? currentUser.email : 'guest@medsentra.my',
                         action: "medicine_check",
                         message: rawMed
                     })
                 });
+
+                if (!response.ok) {
+                    throw new Error(`Server returned HTTP status ${response.status}`);
+                }
 
                 const rawData = await response.json();
                 const item = Array.isArray(rawData) ? rawData[0] : rawData;
@@ -1759,15 +2010,20 @@
                             <span class="bg-cyan-500/20 text-cyan-300 border-cyan-500/30 border text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center space-x-1">
                                 <i class="fa-solid fa-pills mr-1"></i> ${t.aiMedResult}
                             </span>
-                            <a href="https://www.npra.gov.my/index.php/my/consumers-2/maklumat/carian-produk-berdaftar-bernotifikasi.html" target="_blank" rel="noopener noreferrer" class="text-[11px] text-emerald-400 font-semibold hover:underline flex items-center space-x-1 bg-emerald-950/50 px-2.5 py-1 rounded-lg border border-emerald-500/30">
-                                <span>Carian NPRA</span>
-                                <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
-                            </a>
+                            <div class="flex items-center space-x-2">
+                                <a href="https://www.npra.gov.my/index.php/my/consumers-2/maklumat/carian-produk-berdaftar-bernotifikasi.html" target="_blank" rel="noopener noreferrer" class="text-[11px] text-emerald-400 font-semibold hover:underline flex items-center space-x-1 bg-emerald-950/50 px-2.5 py-1 rounded-lg border border-emerald-500/30">
+                                    <span>Carian NPRA</span>
+                                    <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                                </a>
+                                <button onclick="clearMedResults()" class="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold rounded-lg text-xs flex items-center space-x-1 border border-gray-700 transition-all">
+                                    <i class="fa-solid fa-xmark"></i> <span>Clear Result</span>
+                                </button>
+                            </div>
                         </div>
 
-                        <h3 class="font-bold text-white text-sm uppercase">${rawMed}</h3>
+                        <h3 class="font-bold text-white text-sm uppercase">${escapeHtml(rawMed)}</h3>
 
-                        <div class="bg-gray-950 border border-gray-800 p-4 rounded-xl text-gray-200 leading-relaxed font-mono whitespace-pre-wrap text-xs">${aiReply}</div>
+                        <div class="bg-gray-950 border border-gray-800 p-4 rounded-xl text-gray-200 leading-relaxed font-mono whitespace-pre-wrap text-xs">${escapeHtml(aiReply)}</div>
 
                         ${kbWidget}
                     </div>
@@ -1776,11 +2032,66 @@
                 console.error("Webhook Error:", error);
                 container.innerHTML = `
                     <div class="glass-card rounded-2xl p-4 border border-red-500/50 bg-red-950/20 text-xs text-red-300">
-                        <p class="font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> ${t.connFailed}</p>
-                        <p class="text-[11px] text-gray-400 mt-1">${t.connFailedDesc}</p>
+                        <div class="flex justify-between items-center">
+                            <p class="font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> ${t.connFailed}</p>
+                            <button onclick="clearMedResults()" class="px-2 py-1 bg-red-900/40 text-red-300 rounded text-[10px]">Clear</button>
+                        </div>
+                        <p class="text-[11px] text-gray-400 mt-1">${escapeHtml(error.message || t.connFailedDesc)}</p>
                     </div>
                 `;
             }
+        }
+
+        // RENDER KKM GUIDANCE CARD FOR HOLOGRAMS OR DECODING LIMITATIONS
+        function renderKkmGuidanceCard(container, customMsg) {
+            recordHistory('Medicine QR Scan', 'KKM FarmaTag Hologram', 'Official Verification Info Displayed');
+            container.innerHTML = `
+                <div class="glass-card rounded-2xl p-5 border border-amber-500/30 bg-gray-900/90 text-xs shadow-lg space-y-4">
+                    <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+                        <span class="bg-amber-500/20 text-amber-300 border-amber-500/30 border text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center space-x-1">
+                            <i class="fa-solid fa-shield-cat mr-1"></i> KKM Security Label Verification Guidance
+                        </span>
+                        <button onclick="clearMedResults()" class="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold rounded-lg text-xs flex items-center space-x-1 border border-gray-700 transition-all">
+                            <i class="fa-solid fa-xmark"></i> <span>Clear Result</span>
+                        </button>
+                    </div>
+
+                    <div class="space-y-2">
+                        <h3 class="font-bold text-white text-sm flex items-center space-x-2">
+                            <i class="fa-solid fa-building-columns text-emerald-400"></i>
+                            <span>Ministry of Health (KKM) FarmaTag Security Label</span>
+                        </h3>
+                        <p class="text-xs text-gray-300 leading-relaxed">
+                            Custom web apps and public QR decoders cannot query KKM's private server to authenticate security holograms because official FarmaTag labels utilize encrypted government micro-matrices to prevent counterfeit spoofing.
+                        </p>
+                    </div>
+
+                    <div class="p-3.5 bg-gray-950 rounded-xl border border-gray-800 space-y-2.5">
+                        <h4 class="font-bold text-xs text-cyan-400 flex items-center space-x-1.5">
+                            <i class="fa-solid fa-list-check"></i>
+                            <span>Official Steps to Authenticate Your Product:</span>
+                        </h4>
+                        <ul class="space-y-2 text-gray-300 text-[11px] list-disc list-inside">
+                            <li><strong>FarmaChecker / MyUBAT Mobile App:</strong> Download the official government app published by Jabatan Digital Negara / KKM on Google Play or Apple App Store for live holographic verification.</li>
+                            <li><strong>NPRA Registration Check:</strong> Search the MAL registration number (e.g. MAL12345678X) printed on the packaging using the National Pharmaceutical Regulatory Agency database.</li>
+                            <li><strong>Visual Hologram Feature:</strong> Verify that the FarmaTag sticker features reflective holographic elements that shift color when tilted under direct lighting.</li>
+                        </ul>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row gap-2 pt-1">
+                        <a href="https://www.npra.gov.my/index.php/my/consumers-2/maklumat/carian-produk-berdaftar-bernotifikasi.html" target="_blank" rel="noopener noreferrer" class="flex-1 py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-bold rounded-xl text-center text-xs transition-all flex items-center justify-center space-x-1.5">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <span>Search NPRA Database</span>
+                            <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                        </a>
+                        <a href="https://play.google.com/store/apps/details?id=my.gov.moh.mykkm" target="_blank" rel="noopener noreferrer" class="flex-1 py-2.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 font-bold rounded-xl text-center text-xs transition-all flex items-center justify-center space-x-1.5">
+                            <i class="fa-solid fa-mobile-screen"></i>
+                            <span>Open FarmaChecker Info</span>
+                            <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                        </a>
+                    </div>
+                </div>
+            `;
         }
 
         // HEALTH NEWS POOL
@@ -1814,8 +2125,8 @@
                         <span class="text-[10px] bg-amber-200 text-amber-900 px-2.5 py-0.5 rounded-md font-bold uppercase tracking-wide">${news.category}</span>
                         <span class="text-[10px] text-amber-800 font-semibold">${news.dateTag}</span>
                     </div>
-                    <h3 class="font-bold text-sm text-gray-900 leading-snug">${news.title}</h3>
-                    <p class="text-xs text-gray-800 font-medium leading-relaxed">${news.snippet}</p>
+                    <h3 class="font-bold text-sm text-gray-900 leading-snug">${escapeHtml(news.title)}</h3>
+                    <p class="text-xs text-gray-800 font-medium leading-relaxed">${escapeHtml(news.snippet)}</p>
                     <a href="${news.url}" target="_blank" class="text-xs font-bold text-blue-700 hover:underline inline-flex items-center space-x-1 pt-1">
                         <span>Read story</span><i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
                     </a>
