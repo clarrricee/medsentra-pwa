@@ -449,7 +449,7 @@
                         <div>
                             <h3 id="set-lang-title" class="font-semibold text-white">Preferred Language</h3>
                         </div>
-                        <select onchange="changeLanguage(this.value)" id="settingsLangSelect" class="bg-gray-900 border border-gray-800 text-gray-200 px-2.5 py-1.5 rounded-lg">
+                        <select onchange="changeLanguage(this.value)" id="settingsLangSelect" class="bg-gray-900 border border-gray-800 text-gray-200 px-2.5 py-1.5 rounded-lg cursor-pointer">
                             <option value="en">English</option>
                             <option value="ms">Bahasa Melayu</option>
                             <option value="ta">தமிழ்</option>
@@ -733,9 +733,10 @@
 
     <!-- JAVASCRIPT EXECUTION ENGINE -->
     <script>
-        // LIVE NGROK WEBHOOK ENDPOINTS
+        // LIVE NGROK & N8N WEBHOOK ENDPOINTS
         const YOUR_N8N_WEBHOOK_URL = "https://palatable-ranger-dole.ngrok-free.dev/webhook/medsentra-qr";
         const HEALTH_CHAT_WEBHOOK_URL = "https://palatable-ranger-dole.ngrok-free.dev/webhook/medsentra-request";
+        const HEALTH_NEWS_WEBHOOK_URL = "http://localhost:5678/webhook/medsentra-news";
 
         let selectedMedFile = null;
 
@@ -892,6 +893,12 @@
                 newsViewTitle: "Real-Time Health News & Updates",
                 newsSub: "Updated daily with active health advisories.",
                 newsRefresh: "Refresh Daily News",
+                loadingNews: "Loading daily health news from WHO...",
+                noNews: "No health news found at this time.",
+                readFullStory: "Read full story",
+                newsErrorTitle: "Failed to Load Daily Health News",
+                newsErrorDesc: "Please ensure n8n is running on localhost:5678 and the workflow is Active (ON).",
+                retryBtn: "Try Again",
                 histViewTitle: "My Verification History",
                 histViewDesc: "Review all health claims and medicines you have checked.",
                 histClear: "Clear History",
@@ -942,6 +949,12 @@
                 newsViewTitle: "Berita & Kemaskini Kesihatan Masa Nyata",
                 newsSub: "Dikemaskini setiap hari dengan nasihat kesihatan aktif.",
                 newsRefresh: "Segarkan Berita Harian",
+                loadingNews: "Memuatkan berita kesihatan harian terkini daripada WHO...",
+                noNews: "Tiada berita kesihatan ditemui buat masa ini.",
+                readFullStory: "Baca berita penuh",
+                newsErrorTitle: "Gagal Memuatkan Berita Kesihatan Harian",
+                newsErrorDesc: "Sila pastikan n8n berjalan di localhost:5678 dan alur kerja berada dalam status Active (ON).",
+                retryBtn: "Cuba Lagi",
                 histViewTitle: "Sejarah Semakan Saya",
                 histViewDesc: "Semak semua tuntutan kesihatan dan ubat yang telah anda semak.",
                 histClear: "Padam Sejarah",
@@ -992,6 +1005,12 @@
                 newsViewTitle: "நிகழ்நேர சுகாதாரச் செய்திகள்",
                 newsSub: "தினமும் புதுப்பிக்கப்படுகிறது.",
                 newsRefresh: "செய்திகளைப் புதுப்பிக்கவும்",
+                loadingNews: "WHO இலிருந்து தினசரி சுகாதாரச் செய்திகள் ஏற்றப்படுகின்றன...",
+                noNews: "தற்போது சுகாதார செய்திகள் எதுவும் கிடைக்கவில்லை.",
+                readFullStory: "முழு கதையையும் படிக்கவும்",
+                newsErrorTitle: "செய்திகளை ஏற்றுவதில் தோல்வி",
+                newsErrorDesc: "n8n இயங்குவதையும் active ஆக இருப்பதையும் உறுதிப்படுத்தவும்.",
+                retryBtn: "மீண்டும் முயற்சிக்கவும்",
                 histViewTitle: "எனது சரிபார்ப்பு வரலாறு",
                 histViewDesc: "சரிபார்த்த மருந்துகளை மதிப்பாய்வு செய்யவும்.",
                 histClear: "வரலாற்றை அழிக்கவும்",
@@ -1042,6 +1061,12 @@
                 newsViewTitle: "实时健康新闻与动态",
                 newsSub: "每日更新健康指南与资讯。",
                 newsRefresh: "刷新每日新闻",
+                loadingNews: "正在从 WHO 加载每日最新健康新闻...",
+                noNews: "暂无相关健康新闻。",
+                readFullStory: "阅读完整新闻",
+                newsErrorTitle: "无法加载每日健康新闻",
+                newsErrorDesc: "请确保 n8n 在 localhost:5678 运行且工作流处于 Active (ON) 状态。",
+                retryBtn: "重试",
                 histViewTitle: "我的核实历史",
                 histViewDesc: "查看您检查过的所有记录。",
                 histClear: "清除历史",
@@ -1168,6 +1193,9 @@
 
             if (!document.getElementById('view-history').classList.contains('hidden')) {
                 renderHistory();
+            }
+            if (!document.getElementById('view-article').classList.contains('hidden')) {
+                loadHealthNews();
             }
         }
 
@@ -2094,50 +2122,71 @@
             `;
         }
 
-        // HEALTH NEWS POOL
-        function loadHealthNews() {
+        // DYNAMIC PRODUCTION HEALTH NEWS FETCH FROM N8N
+        async function loadHealthNews() {
             const container = document.getElementById('newsFeedContainer');
             if (!container) return;
 
-            const newsKb = getMatchingKbLinks('article');
-            const kbWidget = buildKbWidgetHtml(newsKb);
+            const t = i18n[currentLang] || i18n.en;
 
-            const pool = [
-                {
-                    dateTag: "Today",
-                    category: "FMT Health",
-                    title: "Ministry steps up surveillance on imported food safety standards",
-                    snippet: "KUALA LUMPUR: The health ministry has heightened checks at all entry points regarding perishable produce...",
-                    url: "https://www.freemalaysiatoday.com"
-                },
-                {
-                    dateTag: "Today",
-                    category: "Wellness",
-                    title: "Understanding antibiotic resistance: What every family needs to know",
-                    snippet: "PETALING JAYA: Medical specialists urge the public to complete prescribed antibiotic courses...",
-                    url: "https://www.freemalaysiatoday.com"
-                }
-            ];
-
-            let html = pool.map(news => `
-                <div class="p-4 rounded-2xl bg-amber-50/95 border-2 border-amber-300 space-y-2 shadow-sm">
-                    <div class="flex items-center justify-between">
-                        <span class="text-[10px] bg-amber-200 text-amber-900 px-2.5 py-0.5 rounded-md font-bold uppercase tracking-wide">${news.category}</span>
-                        <span class="text-[10px] text-amber-800 font-semibold">${news.dateTag}</span>
-                    </div>
-                    <h3 class="font-bold text-sm text-gray-900 leading-snug">${escapeHtml(news.title)}</h3>
-                    <p class="text-xs text-gray-800 font-medium leading-relaxed">${escapeHtml(news.snippet)}</p>
-                    <a href="${news.url}" target="_blank" class="text-xs font-bold text-blue-700 hover:underline inline-flex items-center space-x-1 pt-1">
-                        <span>Read story</span><i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
-                    </a>
+            // Display loading indicator
+            container.innerHTML = `
+                <div class="col-span-1 md:col-span-2 text-center py-8 space-y-2">
+                    <i class="fa-solid fa-spinner fa-spin text-cyan-400 text-2xl"></i>
+                    <p class="text-xs text-gray-400">${t.loadingNews}</p>
                 </div>
-            `).join('');
+            `;
 
-            if (kbWidget) {
-                html += `<div class="col-span-1 md:col-span-2">${kbWidget}</div>`;
+            try {
+                // Fetch dynamic news feed from local n8n Production Webhook
+                const response = await fetch(HEALTH_NEWS_WEBHOOK_URL);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP Error: ${response.status}`);
+                }
+
+                const newsList = await response.json();
+                const newsKb = typeof getMatchingKbLinks === 'function' ? getMatchingKbLinks('article') : null;
+                const kbWidget = typeof buildKbWidgetHtml === 'function' ? buildKbWidgetHtml(newsKb) : '';
+
+                if (!newsList || newsList.length === 0) {
+                    container.innerHTML = `<p class="col-span-2 text-center text-xs text-gray-500 py-6">${t.noNews}</p>`;
+                    return;
+                }
+
+                let html = newsList.map(news => `
+                    <div class="p-4 rounded-2xl bg-amber-50/95 border-2 border-amber-300 space-y-2 shadow-sm hover:border-amber-400 transition-all">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] bg-amber-200 text-amber-900 px-2.5 py-0.5 rounded-md font-bold uppercase tracking-wide">${escapeHtml(news.category || 'WHO News')}</span>
+                            <span class="text-[10px] text-amber-800 font-semibold">${escapeHtml(news.date || 'Terkini')}</span>
+                        </div>
+                        <h3 class="font-bold text-sm text-gray-900 leading-snug">${escapeHtml(news.title)}</h3>
+                        <p class="text-xs text-gray-800 font-medium leading-relaxed">${escapeHtml(news.snippet)}</p>
+                        <a href="${escapeHtml(news.url)}" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-blue-700 hover:underline inline-flex items-center space-x-1 pt-1">
+                            <span>${t.readFullStory}</span>
+                            <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                        </a>
+                    </div>
+                `).join('');
+
+                if (kbWidget) {
+                    html += `<div class="col-span-1 md:col-span-2">${kbWidget}</div>`;
+                }
+
+                container.innerHTML = html;
+
+            } catch (error) {
+                console.error("Health News Error:", error);
+                container.innerHTML = `
+                    <div class="col-span-1 md:col-span-2 p-4 rounded-xl bg-red-950/30 border border-red-500/40 text-xs text-red-300 text-center space-y-2">
+                        <p class="font-bold"><i class="fa-solid fa-circle-exclamation mr-1"></i> ${t.newsErrorTitle}</p>
+                        <p class="text-[11px] text-gray-400">${t.newsErrorDesc}</p>
+                        <button onclick="loadHealthNews()" class="px-3 py-1 bg-red-800/50 hover:bg-red-800 text-red-200 rounded-lg text-[11px] border border-red-700 shadow-sm transition-all">
+                            <i class="fa-solid fa-rotate mr-1"></i> ${t.retryBtn}
+                        </button>
+                    </div>
+                `;
             }
-
-            container.innerHTML = html;
         }
 
         function toggleHighContrast(enabled) {
