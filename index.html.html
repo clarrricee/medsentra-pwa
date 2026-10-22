@@ -733,12 +733,22 @@
 
     <!-- JAVASCRIPT EXECUTION ENGINE -->
     <script>
-        // LIVE NGROK & N8N WEBHOOK ENDPOINTS
+        // LIVE NGROK & N8N WEBHOOK ENDPOINTS (UPDATED FOR PRODUCTION)
         const YOUR_N8N_WEBHOOK_URL = "https://palatable-ranger-dole.ngrok-free.dev/webhook/medsentra-qr";
         const HEALTH_CHAT_WEBHOOK_URL = "https://palatable-ranger-dole.ngrok-free.dev/webhook/medsentra-request";
-        const HEALTH_NEWS_WEBHOOK_URL = "http://localhost:5678/webhook/medsentra-news";
+        const HEALTH_NEWS_WEBHOOK_URL = "https://palatable-ranger-dole.ngrok-free.dev/webhook/medsentra-news";
 
         let selectedMedFile = null;
+
+        // HELPER FUNCTION: TRUNCATE TEXT TO MAXIMUM 2 WORDS
+        function truncateTwoWords(text) {
+            if (!text) return '';
+            const words = text.trim().split(/\s+/);
+            if (words.length > 2) {
+                return words.slice(0, 2).join(' ') + '...';
+            }
+            return text;
+        }
 
         // SEED DEFAULT HISTORY FOR INITIAL DASHBOARD VISUALIZATIONS
         const defaultSampleHistory = [
@@ -1199,7 +1209,7 @@
             }
         }
 
-        // RENDER USER DASHBOARD CHARTS & POPULAR PILLS WITH DYNAMIC SUMS
+        // RENDER USER DASHBOARD CHARTS & POPULAR PILLS WITH DYNAMIC SUMS (SHORTENED TO MAX 2 WORDS)
         function renderUserDashboards() {
             const claimContainer = document.getElementById('userTrendingClaimsContainer');
             const medContainer = document.getElementById('userTrendingMedContainer');
@@ -1225,18 +1235,19 @@
             const claimPills = Object.keys(healthFreq).length > 0 ? Object.keys(healthFreq).slice(0, 4) : defaultClaims;
             const medPills = Object.keys(medFreq).length > 0 ? Object.keys(medFreq).slice(0, 4) : defaultMeds;
 
+            // Display pills truncated to max 2 words for clean UI appearance
             if (claimContainer) {
                 claimContainer.innerHTML = claimPills.map(term => `
-                    <button onclick="quickFillSearch('${term.replace(/'/g, "\\'")}', 'health')" class="px-2.5 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded-lg font-medium transition-all text-left truncate max-w-xs">
-                        <i class="fa-solid fa-magnifying-glass text-[10px] mr-1 text-cyan-400"></i>${term}
+                    <button onclick="quickFillSearch('${term.replace(/'/g, "\\'")}', 'health')" title="${escapeHtml(term)}" class="px-2.5 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded-lg font-medium transition-all text-left truncate max-w-xs">
+                        <i class="fa-solid fa-magnifying-glass text-[10px] mr-1 text-cyan-400"></i>${escapeHtml(truncateTwoWords(term))}
                     </button>
                 `).join('');
             }
 
             if (medContainer) {
                 medContainer.innerHTML = medPills.map(term => `
-                    <button onclick="quickFillSearch('${term.replace(/'/g, "\\'")}', 'med')" class="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-lg font-bold uppercase transition-all">
-                        <i class="fa-solid fa-pills text-[10px] mr-1 text-emerald-400"></i>${term}
+                    <button onclick="quickFillSearch('${term.replace(/'/g, "\\'")}', 'med')" title="${escapeHtml(term)}" class="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-lg font-bold uppercase transition-all">
+                        <i class="fa-solid fa-pills text-[10px] mr-1 text-emerald-400"></i>${escapeHtml(truncateTwoWords(term))}
                     </button>
                 `).join('');
             }
@@ -1244,7 +1255,7 @@
             // Update User Health Claims Dynamic Summary
             const healthSumTotal = Object.values(healthFreq).reduce((a, b) => a + b, 0) || healthItems.length || 7;
             const topHealthTopic = claimPills[0] || "Sleep & weight loss";
-            document.getElementById('userHealthTopSearch').innerText = topHealthTopic;
+            document.getElementById('userHealthTopSearch').innerText = truncateTwoWords(topHealthTopic);
             document.getElementById('userHealthTotalSum').innerText = healthSumTotal + " total queries";
 
             // Render User Health Claims Bar Chart
@@ -1256,7 +1267,7 @@
                 userHealthChartInst = new Chart(ctxHealth, {
                     type: 'bar',
                     data: {
-                        labels: labels.map(l => l.length > 15 ? l.substring(0, 15) + '...' : l),
+                        labels: labels.map(l => truncateTwoWords(l)),
                         datasets: [{
                             label: 'Searches',
                             data: data,
@@ -1279,7 +1290,7 @@
             // Update User Medicine Dynamic Summary
             const medSumTotal = Object.values(medFreq).reduce((a, b) => a + b, 0) || medItems.length || 9;
             const topMedName = medPills[0] || "panadol";
-            document.getElementById('userMedTopSearch').innerText = topMedName;
+            document.getElementById('userMedTopSearch').innerText = truncateTwoWords(topMedName);
             document.getElementById('userMedTotalSum').innerText = medSumTotal + " total scans";
 
             // Render User Medicine Check Doughnut Chart
@@ -1287,11 +1298,11 @@
             if (ctxMed) {
                 if (userMedChartInst) userMedChartInst.destroy();
                 const labels = medPills;
-                const data = labels.map(l => medFreq[l] || Math.floor(Math.random() * 10) + 4);
+                const data = labels.map(l => healthFreq[l] || Math.floor(Math.random() * 10) + 4);
                 userMedChartInst = new Chart(ctxMed, {
                     type: 'doughnut',
                     data: {
-                        labels: labels,
+                        labels: labels.map(l => truncateTwoWords(l)),
                         datasets: [{
                             data: data,
                             backgroundColor: ['#10b981', '#06b6d4', '#f59e0b', '#8b5cf6'],
@@ -1368,13 +1379,13 @@
             });
 
             const topTerms = Object.entries(freqMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
-            const barLabels = topTerms.map(t => t[0].length > 12 ? t[0].substring(0, 12) + '..' : t[0]);
+            const barLabels = topTerms.map(t => truncateTwoWords(t[0]));
             const barData = topTerms.map(t => t[1]);
 
             const topSearchTermName = topTerms[0] ? topTerms[0][0] : "panadol";
             const topTopicSum = barData.reduce((a, b) => a + b, 0) || 37;
 
-            document.getElementById('adminTopBarTerm').innerText = topSearchTermName;
+            document.getElementById('adminTopBarTerm').innerText = truncateTwoWords(topSearchTermName);
             document.getElementById('adminTopBarSum').innerText = topTopicSum + " topic searches";
 
             const ctxBar = document.getElementById('adminTopBarChart')?.getContext('2d');
