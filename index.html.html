@@ -734,8 +734,8 @@
     <!-- JAVASCRIPT EXECUTION ENGINE -->
     <script>
         // LIVE NGROK & N8N WEBHOOK ENDPOINTS (UPDATED FOR PRODUCTION)
-        const YOUR_N8N_WEBHOOK_URL = "https://palatable-ranger-dole.ngrok-free.dev/webhook/medsentra-qr";
-        const HEALTH_CHAT_WEBHOOK_URL = "https://palatable-ranger-dole.ngrok-free.dev/webhook/medsentra-request";
+        const YOUR_N8N_WEBHOOK_URL = "https://palatable-ranger-dole.ngrok-free.dev/webhook/fc5f03a0-ca8f-42fc-b17b-00b683a43f70";
+        const HEALTH_CHAT_WEBHOOK_URL = "https://palatable-ranger-dole.ngrok-free.dev/webhook/fc5f03a0-ca8f-42fc-b17b-00b683a43f70";
         const HEALTH_NEWS_WEBHOOK_URL = "https://palatable-ranger-dole.ngrok-free.dev/webhook/medsentra-news";
 
         let selectedMedFile = null;
@@ -1843,9 +1843,11 @@
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        userId: (currentUser && currentUser.email) ? currentUser.email : 'guest@medsentra.my',
-                        action: "health_chat",
-                        message: query
+                        body: [{
+                            userId: (currentUser && currentUser.email) ? currentUser.email : 'guest@medsentra.my',
+                            action: "health_chat",
+                            message: query
+                        }]
                     })
                 });
 
@@ -1853,9 +1855,8 @@
                     throw new Error(`Server returned HTTP status ${response.status}`);
                 }
 
-                const rawData = await response.json();
-                const item = Array.isArray(rawData) ? rawData[0] : rawData;
-                const aiReply = item?.reply || item?.text || item?.output || (typeof rawData === 'string' ? rawData : JSON.stringify(rawData, null, 2));
+                const aiReply = await response.text();
+                if (!aiReply.trim()) throw new Error("The webhook returned an empty response.");
 
                 recordHistory('Health Chat', query, t.processedByAi);
 
@@ -2024,9 +2025,11 @@
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        userId: (currentUser && currentUser.email) ? currentUser.email : 'guest@medsentra.my',
-                        action: "medicine_check",
-                        message: rawMed
+                        body: [{
+                            userId: (currentUser && currentUser.email) ? currentUser.email : 'guest@medsentra.my',
+                            action: "medicine_check",
+                            medicine_name: rawMed
+                        }]
                     })
                 });
 
@@ -2034,9 +2037,8 @@
                     throw new Error(`Server returned HTTP status ${response.status}`);
                 }
 
-                const rawData = await response.json();
-                const item = Array.isArray(rawData) ? rawData[0] : rawData;
-                const aiReply = item?.reply || item?.text || item?.output || (typeof rawData === 'string' ? rawData : JSON.stringify(rawData, null, 2));
+                const aiReply = await response.text();
+                if (!aiReply.trim()) throw new Error("The webhook returned an empty response.");
 
                 recordHistory('Medicine Check', rawMed, t.verifiedByAi);
 
