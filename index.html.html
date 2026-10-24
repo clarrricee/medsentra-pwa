@@ -54,6 +54,22 @@
             .print-section-hidden { display: none !important; }
             canvas { max-width: 100% !important; height: auto !important; }
         }
+        /* Readable AI response formatting for headings, paragraphs and lists */
+        .medical-markdown { overflow-wrap: anywhere; }
+        .medical-markdown h1, .medical-markdown h2, .medical-markdown h3 {
+            color: #67e8f9; font-weight: 700; line-height: 1.35; margin: 0.9rem 0 0.45rem;
+        }
+        .medical-markdown h1 { font-size: 1.1rem; }
+        .medical-markdown h2 { font-size: 1rem; }
+        .medical-markdown h3 { font-size: 0.95rem; }
+        .medical-markdown p { margin: 0.45rem 0; line-height: 1.7; }
+        .medical-markdown ul, .medical-markdown ol { margin: 0.5rem 0 0.75rem 1.35rem; padding-left: 0.25rem; }
+        .medical-markdown ul { list-style: disc; }
+        .medical-markdown ol { list-style: decimal; }
+        .medical-markdown li { margin: 0.25rem 0; padding-left: 0.15rem; line-height: 1.65; }
+        .medical-markdown strong { color: #f9fafb; font-weight: 700; }
+        .medical-markdown code { background: #1f2937; border-radius: 0.25rem; padding: 0.1rem 0.3rem; font-size: 0.9em; }
+
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 4px; }
     </style>
@@ -1115,6 +1131,133 @@
             });
         }
 
+
+        // Safely extract the AI's actual text from common n8n response shapes.
+        // Handles plain text, {"reply":"..."}, {"output":"..."}, arrays, and
+        // nested AI Agent output such as response.generations[0][0].text.
+        function extractAIReply(rawResponse) {
+            let payload = rawResponse;
+
+            if (typeof payload === 'string') {
+                const trimmed = payload.trim();
+                if (!trimmed) return '';
+                try {
+                    payload = JSON.parse(trimmed);
+                } catch (_) {
+                    // Some workflows return a plain text string rather than JSON.
+                    return payload.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n').replace(/\\r/g, '\r');
+                }
+            }
+
+            function findText(value, depth = 0) {
+                if (depth > 8 || value == null) return '';
+                if (typeof value === 'string') {
+                    // If a nested field itself contains serialized JSON, unwrap it.
+                    const trimmed = value.trim();
+                    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+                        (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+                        try { return findText(JSON.parse(trimmed), depth + 1); } catch (_) {}
+                    }
+                    return value.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n').replace(/\\r/g, '\r');
+                }
+                if (Array.isArray(value)) {
+                    for (const item of value) {
+                        const found = findText(item, depth + 1);
+                        if (found.trim()) return found;
+                    }
+                    return '';
+                }
+                if (typeof value === 'object') {
+                    for (const key of ['reply', 'output', 'text', 'answer', 'content']) {
+                        if (Object.prototype.hasOwnProperty.call(value, key)) {
+                            const found = findText(value[key], depth + 1);
+                            if (found.trim()) return found;
+                        }
+                    }
+                    for (const key of ['response', 'generations', 'data', 'result', 'message']) {
+                        if (Object.prototype.hasOwnProperty.call(value, key)) {
+                            const found = findText(value[key], depth + 1);
+                            if (found.trim()) return found;
+                        }
+                    }
+                }
+                return '';
+            }
+
+            return findText(payload).trim();
+        }
+
+        // Render a small, safe subset of Markdown. All source text is escaped
+        // before formatting, so AI output cannot inject arbitrary HTML/scripts.
+        function renderMarkdownSafe(markdown) {
+            const source = String(markdown || '').replace(/\r\n?/g, '\n').trim();
+            if (!source) return '<p>No response text was returned.</p>';
+
+            const escape = (value) => escapeHtml(value);
+            const inline = (value) => escape(value)
+                .replace(/`([^`]+)`/g, '<code>$1</code>')
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                .replace(/__(.+?)__/g, '<strong>$1</strong>')
+                .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
+
+            const lines = source.split('\n');
+            const output = [];
+            let paragraph = [];
+            let listType = null;
+
+            const flushParagraph = () => {
+                if (paragraph.length) {
+                    output.push('<p>' + inline(paragraph.join(' ')) + '</p>');
+                    paragraph = [];
+                }
+            };
+            const closeList = () => {
+                if (listType) {
+                    output.push(`</${listType}>`);
+                    listType = null;
+                }
+            };
+
+            for (const originalLine of lines) {
+                const line = originalLine.trim();
+                if (!line) {
+                    flushParagraph();
+                    closeList();
+                    continue;
+                }
+
+                const heading = line.match(/^(#{1,3})\s+(.+)$/);
+                if (heading) {
+                    flushParagraph();
+                    closeList();
+                    const level = heading[1].length;
+                    output.push(`<h${level}>${inline(heading[2])}</h${level}>`);
+                    continue;
+                }
+
+                const bullet = line.match(/^[-*•]\s+(.+)$/);
+                const numbered = line.match(/^\d+[.)]\s+(.+)$/);
+                if (bullet || numbered) {
+                    flushParagraph();
+                    const desiredType = bullet ? 'ul' : 'ol';
+                    if (listType !== desiredType) {
+                        closeList();
+                        output.push(`<${desiredType}>`);
+                        listType = desiredType;
+                    }
+                    output.push(`<li>${inline((bullet || numbered)[1])}</li>`);
+                    continue;
+                }
+
+                closeList();
+                paragraph.push(line);
+            }
+
+            flushParagraph();
+            closeList();
+            return output.join('');
+        }
+
         function changeLanguage(lang) {
             currentLang = lang;
             const sel1 = document.getElementById('langSelect');
@@ -1855,8 +1998,9 @@
                     throw new Error(`Server returned HTTP status ${response.status}`);
                 }
 
-                const aiReply = await response.text();
-                if (!aiReply.trim()) throw new Error("The webhook returned an empty response.");
+                const rawReply = await response.text();
+                const aiReply = extractAIReply(rawReply);
+                if (!aiReply.trim()) throw new Error("The webhook response did not contain a reply/text/output field.");
 
                 recordHistory('Health Chat', query, t.processedByAi);
 
@@ -1876,7 +2020,7 @@
 
                         <h3 class="font-bold text-white text-sm">${t.queryLabel}: "${escapeHtml(query)}"</h3>
 
-                        <div class="bg-gray-950 border border-gray-800 p-4 rounded-xl text-gray-200 leading-relaxed font-mono whitespace-pre-wrap text-xs">${escapeHtml(aiReply)}</div>
+                        <div class="bg-gray-950 border border-gray-800 p-4 rounded-xl text-gray-200 leading-relaxed text-sm medical-markdown">${renderMarkdownSafe(aiReply)}</div>
 
                         ${kbWidget}
                     </div>
@@ -2037,8 +2181,9 @@
                     throw new Error(`Server returned HTTP status ${response.status}`);
                 }
 
-                const aiReply = await response.text();
-                if (!aiReply.trim()) throw new Error("The webhook returned an empty response.");
+                const rawReply = await response.text();
+                const aiReply = extractAIReply(rawReply);
+                if (!aiReply.trim()) throw new Error("The webhook response did not contain a reply/text/output field.");
 
                 recordHistory('Medicine Check', rawMed, t.verifiedByAi);
 
@@ -2064,7 +2209,7 @@
 
                         <h3 class="font-bold text-white text-sm uppercase">${escapeHtml(rawMed)}</h3>
 
-                        <div class="bg-gray-950 border border-gray-800 p-4 rounded-xl text-gray-200 leading-relaxed font-mono whitespace-pre-wrap text-xs">${escapeHtml(aiReply)}</div>
+                        <div class="bg-gray-950 border border-gray-800 p-4 rounded-xl text-gray-200 leading-relaxed text-sm medical-markdown">${renderMarkdownSafe(aiReply)}</div>
 
                         ${kbWidget}
                     </div>
