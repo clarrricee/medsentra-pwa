@@ -749,8 +749,8 @@
 
     <!-- JAVASCRIPT EXECUTION ENGINE -->
     <script>
-        // LIVE NGROK & N8N WEBHOOK ENDPOINTS (UPDATED FOR PRODUCTION)
-        const YOUR_N8N_WEBHOOK_URL = "https://palatable-ranger-dole.ngrok-free.dev/webhook/fc5f03a0-ca8f-42fc-b17b-00b683a43f70";
+        // N8N WEBHOOK ENDPOINTS — replace the ngrok domain if your tunnel URL changes
+        const YOUR_N8N_WEBHOOK_URL = "https://palatable-ranger-dole.ngrok-free.dev/webhook/medsentra-qr";
         const HEALTH_CHAT_WEBHOOK_URL = "https://palatable-ranger-dole.ngrok-free.dev/webhook/fc5f03a0-ca8f-42fc-b17b-00b683a43f70";
         const HEALTH_NEWS_WEBHOOK_URL = "https://palatable-ranger-dole.ngrok-free.dev/webhook/medsentra-news";
 
@@ -1963,6 +1963,11 @@
             const extEl = document.getElementById('extractedClaimText');
             const isImageMode = !document.getElementById('claim-mode-image-box').classList.contains('hidden');
             let query = (isImageMode && extEl && extEl.value.trim()) ? extEl.value.trim() : (textEl ? textEl.value.trim() : '');
+            // OCR can misread letters and spacing. Tell the model the source is OCR text,
+            // and require it to distinguish clear content from uncertain extraction.
+            if (isImageMode && query) {
+                query = "The following is text extracted from an image using OCR and may contain recognition errors, misplaced characters, or broken words. First identify the likely topic only when reasonably clear. Do not invent missing details. If the text is too corrupted to understand, briefly say so and ask the user to upload a clearer image or type the question. OCR text: \"" + query + "\"";
+            }
             const t = i18n[currentLang] || i18n.en;
 
             if (!query) {
@@ -2072,29 +2077,71 @@
                         throw new Error(`Server returned HTTP status ${response.status}`);
                     }
 
-                    const rawData = await response.json();
+                    // Read as text first because some n8n Respond to Webhook configurations
+                    // return an empty body, plain text, or JSON with a different content type.
+                    const responseText = await response.text();
+                    if (!responseText || !responseText.trim()) {
+                        throw new Error("The n8n webhook returned an empty response. Check the Respond to Webhook node and ensure it returns the QR scan item as JSON.");
+                    }
+                    let rawData;
+                    try {
+                        rawData = JSON.parse(responseText);
+                    } catch (parseError) {
+                        throw new Error("The n8n webhook response is not valid JSON. Start of response: " + responseText.trim().slice(0, 180));
+                    }
                     const item = normalizeQrWebhookResponse(rawData);
 
                     if (!item || typeof item !== 'object') {
                         throw new Error("The n8n response did not contain a usable QR scan result.");
                     }
 
-                    // n8n output uses keys with spaces, e.g. "medicine name" and "scan status".
-                    // qrdata is itself a JSON string containing message and url.
+                    // Search the complete response recursively because n8n can wrap the output
+                    // in body/data/result/json or return an array of items.
+                    const allObjects = collectWebhookObjects(rawData);
+                    allObjects.unshift(item);
                     let qrPayload = {};
-                    if (item.qrdata && typeof item.qrdata === 'string') {
-                        try { qrPayload = JSON.parse(item.qrdata); } catch (e) { qrPayload = { message: item.qrdata }; }
-                    } else if (item.qrdata && typeof item.qrdata === 'object') {
-                        qrPayload = item.qrdata;
+                    let qrMessage = '';
+                    for (const obj of allObjects) {
+                        const qrRaw = obj.qrdata ?? obj.medicineInfo ?? obj.medicine_info ?? obj.qr_data ?? obj.qrData ?? null;
+                        if (typeof qrRaw === 'string' && qrRaw.trim()) {
+                            try {
+                                const parsed = JSON.parse(qrRaw);
+                                if (parsed && typeof parsed === 'object') qrPayload = { ...qrPayload, ...parsed };
+                                else qrMessage = qrMessage || qrRaw;
+                            } catch (e) {
+                                qrMessage = qrMessage || qrRaw;
+                            }
+                        } else if (qrRaw && typeof qrRaw === 'object') {
+                            qrPayload = { ...qrPayload, ...qrRaw };
+                        }
+                        if (typeof obj.message === 'string') qrMessage = qrMessage || obj.message;
                     }
+                    if (qrPayload.message) qrMessage = qrPayload.message;
 
-                    const medName = item['medicine name'] || item.medicineName || item.medicine_name || item.dg || extractQrTag(qrPayload.message, 'dg') || 'Unidentified QR Product';
-                    const instructions = item.instruction || item.instructions || item.in || extractQrTag(qrPayload.message, 'in') || 'No instructions were included in the QR scan result.';
-                    const qrMessage = qrPayload.message || item.message || '';
-                    const imgUrl = item['image url'] || item.imageUrl || qrPayload.url || item.url || '';
-                    const scanTime = item['scan time'] || item.scanTime || '';
-                    const statusValue = item['scan status'] ?? item.scanStatus ?? item.success;
-                    const isSuccess = statusValue === true || statusValue === 'true' || statusValue === 1 || statusValue === '1';
+                    const firstValue = (keys) => {
+                        for (const obj of allObjects) {
+                            for (const key of keys) {
+                                const v = cleanWebhookValue(obj[key]);
+                                if (v) return v;
+                            }
+                        }
+                        return '';
+                    };
+                    const medName = firstValue(['medicine name', 'medicineName', 'medicine_name', 'Medicine Name', 'dg', 'drugName', 'drug_name']) ||
+                        cleanWebhookValue(qrPayload['medicine name']) || cleanWebhookValue(qrPayload.medicineName) || cleanWebhookValue(qrPayload.medicine_name) || cleanWebhookValue(extractQrTag(qrMessage, 'dg')) ||
+                        'Nama ubat tidak dikenal pasti';
+                    const instructions = firstValue(['instruction', 'instructions', 'Instructions', 'in', 'dosageInstructions']) ||
+                        cleanWebhookValue(qrPayload.instruction) || cleanWebhookValue(qrPayload.instructions) || cleanWebhookValue(qrPayload.in) || cleanWebhookValue(extractQrTag(qrMessage, 'in')) ||
+                        'Arahan penggunaan tidak tersedia dalam respons QR.';
+                    const rawImageUrl = firstValue(['image url', 'imageUrl', 'url']) || cleanWebhookValue(qrPayload.url);
+                    const imgUrl = /^https?:\/\//i.test(rawImageUrl) ? rawImageUrl : '';
+                    const scanTime = firstValue(['scan time', 'scanTime', 'timestamp', 'Scan Time']);
+                    const statusValue = firstValue(['scan status', 'scanStatus', 'success']);
+                    // If the workflow returns medicine details but omits a success flag, treat it as decoded,
+                    // while still clearly warning that decoding does not verify authenticity.
+                    const hasMedicineData = Boolean(medName && medName !== 'Nama ubat tidak dikenal pasti');
+                    const isSuccess = statusValue === true || statusValue === 'true' || statusValue === 1 || statusValue === '1' ||
+                        (statusValue == null && hasMedicineData);
 
                     if (medExtText) medExtText.value = medName;
 
@@ -2149,7 +2196,7 @@
                             </div>
                         `;
                     } else {
-                        renderQrScanError(container, 'The QR scan completed, but n8n did not mark the result as successful. Please try again or check the QR code.');
+                        renderQrScanError(container, 'Data diterima, tetapi medan scan status bukan true. Semak output node n8n dan pastikan ia memulangkan medan "scan status": true.');
                     }
                 } catch (error) {
                     console.error("QR Scan Error:", error);
@@ -2240,23 +2287,65 @@
             }
         }
 
-        // Normalize common n8n response shapes: an item, an array of items, or { body: [...] }.
+        // Treat unexpanded n8n expressions as missing values; they are not actual medicine data.
+        function cleanWebhookValue(value) {
+            if (value === null || value === undefined) return '';
+            if (typeof value !== 'string') return String(value);
+            const text = value.trim();
+            if (!text || /^\\?=\s*\{\{[\s\S]*\}\}$/.test(text) || /^\$json\./i.test(text)) return '';
+            return text;
+        }
+
+        // Collect nested objects from typical n8n webhook response shapes without assuming one wrapper.
+        function collectWebhookObjects(data) {
+            const found = [];
+            const seen = new Set();
+            function walk(value, depth) {
+                if (!value || typeof value !== 'object' || depth > 12 || seen.has(value)) return;
+                seen.add(value);
+                if (Array.isArray(value)) {
+                    value.forEach(v => walk(v, depth + 1));
+                    return;
+                }
+                found.push(value);
+                for (const [key, child] of Object.entries(value)) {
+                    if (child && typeof child === 'object') walk(child, depth + 1);
+                    else if (typeof child === 'string' && /^[\s]*[\[{]/.test(child) && /[\]}][\s]*$/.test(child)) {
+                        try { walk(JSON.parse(child), depth + 1); } catch (_) {}
+                    }
+                }
+            }
+            walk(data, 0);
+            return found;
+        }
+
+        // Normalize common n8n response shapes, including n8n item wrappers like { json: {...} }.
         function normalizeQrWebhookResponse(data) {
             let value = data;
-            for (let i = 0; i < 4; i++) {
-                if (Array.isArray(value)) { value = value[0]; continue; }
-                if (value && typeof value === 'object' && Array.isArray(value.body)) { value = value.body[0]; continue; }
-                if (value && typeof value === 'object' && value.data && typeof value.data === 'object' && !value['medicine name'] && !value.medicineName) { value = value.data; continue; }
+            for (let i = 0; i < 10; i++) {
+                if (Array.isArray(value)) {
+                    if (!value.length) return {};
+                    value = value[0];
+                    continue;
+                }
+                if (!value || typeof value !== 'object') return value;
+
+                // n8n may wrap each item in a json property.
+                if (value.json && typeof value.json === 'object') { value = value.json; continue; }
+                if (Array.isArray(value.body)) { value = value.body[0]; continue; }
+                if (Array.isArray(value.data)) { value = value.data[0]; continue; }
+                if (value.body && typeof value.body === 'object' && !value['medicine name'] && !value.medicineName) { value = value.body; continue; }
+                if (value.data && typeof value.data === 'object' && !value['medicine name'] && !value.medicineName && !value.medicine_name && !value.qrdata) { value = value.data; continue; }
                 break;
             }
-            return value;
+            return value || {};
         }
 
         // Extract a value from QR message tags such as <dg>Medicine</dg> and <in>Instructions</in>.
         function extractQrTag(message, tagName) {
             if (!message || typeof message !== 'string') return '';
             const escapedTag = tagName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const match = message.match(new RegExp('<' + escapedTag + '>([\s\S]*?)</' + escapedTag + '>', 'i'));
+            const match = message.match(new RegExp('<' + escapedTag + '>([\\s\\S]*?)</' + escapedTag + '>', 'i'));
             return match ? match[1].replace(/<[^>]*>/g, '').trim() : '';
         }
 
