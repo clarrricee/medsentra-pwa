@@ -2073,21 +2073,32 @@
                     }
 
                     const rawData = await response.json();
-                    const item = Array.isArray(rawData) ? rawData[0] : rawData;
+                    const item = normalizeQrWebhookResponse(rawData);
 
-                    if (!item) {
-                        throw new Error("Invalid response format received from n8n webhook.");
+                    if (!item || typeof item !== 'object') {
+                        throw new Error("The n8n response did not contain a usable QR scan result.");
                     }
 
-                    const isSuccess = item.success !== false;
-                    const medName = item.medicineName || item.dg || "Unidentified QR Product";
-                    const instructions = item.instructions || item.in || "No specific dosage instructions provided.";
-                    const msg = item.message || "";
-                    const imgUrl = item.imageUrl || item.url || "";
+                    // n8n output uses keys with spaces, e.g. "medicine name" and "scan status".
+                    // qrdata is itself a JSON string containing message and url.
+                    let qrPayload = {};
+                    if (item.qrdata && typeof item.qrdata === 'string') {
+                        try { qrPayload = JSON.parse(item.qrdata); } catch (e) { qrPayload = { message: item.qrdata }; }
+                    } else if (item.qrdata && typeof item.qrdata === 'object') {
+                        qrPayload = item.qrdata;
+                    }
+
+                    const medName = item['medicine name'] || item.medicineName || item.medicine_name || item.dg || extractQrTag(qrPayload.message, 'dg') || 'Unidentified QR Product';
+                    const instructions = item.instruction || item.instructions || item.in || extractQrTag(qrPayload.message, 'in') || 'No instructions were included in the QR scan result.';
+                    const qrMessage = qrPayload.message || item.message || '';
+                    const imgUrl = item['image url'] || item.imageUrl || qrPayload.url || item.url || '';
+                    const scanTime = item['scan time'] || item.scanTime || '';
+                    const statusValue = item['scan status'] ?? item.scanStatus ?? item.success;
+                    const isSuccess = statusValue === true || statusValue === 'true' || statusValue === 1 || statusValue === '1';
 
                     if (medExtText) medExtText.value = medName;
 
-                    recordHistory('Medicine QR Scan', medName, isSuccess ? 'QR Decoded Successfully' : 'QR Scan Guidance');
+                    recordHistory('Medicine QR Scan', medName, isSuccess ? 'QR Decoded Successfully' : 'QR Scan Needs Review');
 
                     const matchedKb = getMatchingKbLinks('medicine', medName);
                     const kbWidget = buildKbWidgetHtml(matchedKb);
@@ -2115,7 +2126,8 @@
                                         ${imgUrl ? `<img src="${imgUrl}" alt="Scanned QR Medicine" class="w-28 h-28 object-cover rounded-xl border border-gray-700 shrink-0">` : ''}
                                         <div class="space-y-2 flex-1">
                                             <h3 class="font-bold text-white text-base uppercase text-emerald-400">${escapeHtml(medName)}</h3>
-                                            ${msg ? `<p class="text-xs text-cyan-300 font-medium">${escapeHtml(msg)}</p>` : ''}
+                                            ${qrMessage ? `<p class="text-xs text-cyan-300 font-medium">QR content was read successfully.</p>` : ''}
+                                            ${scanTime ? `<p class="text-[11px] text-gray-500">Scan time: ${escapeHtml(scanTime)}</p>` : ''}
                                         </div>
                                     </div>
 
@@ -2137,11 +2149,11 @@
                             </div>
                         `;
                     } else {
-                        renderKkmGuidanceCard(container, msg);
+                        renderQrScanError(container, 'The QR scan completed, but n8n did not mark the result as successful. Please try again or check the QR code.');
                     }
                 } catch (error) {
                     console.error("QR Scan Error:", error);
-                    renderKkmGuidanceCard(container, error.message);
+                    renderQrScanError(container, error.message || 'Unable to read the QR scan response.');
                 }
                 return;
             }
@@ -2226,6 +2238,38 @@
                     </div>
                 `;
             }
+        }
+
+        // Normalize common n8n response shapes: an item, an array of items, or { body: [...] }.
+        function normalizeQrWebhookResponse(data) {
+            let value = data;
+            for (let i = 0; i < 4; i++) {
+                if (Array.isArray(value)) { value = value[0]; continue; }
+                if (value && typeof value === 'object' && Array.isArray(value.body)) { value = value.body[0]; continue; }
+                if (value && typeof value === 'object' && value.data && typeof value.data === 'object' && !value['medicine name'] && !value.medicineName) { value = value.data; continue; }
+                break;
+            }
+            return value;
+        }
+
+        // Extract a value from QR message tags such as <dg>Medicine</dg> and <in>Instructions</in>.
+        function extractQrTag(message, tagName) {
+            if (!message || typeof message !== 'string') return '';
+            const escapedTag = tagName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const match = message.match(new RegExp('<' + escapedTag + '>([\s\S]*?)</' + escapedTag + '>', 'i'));
+            return match ? match[1].replace(/<[^>]*>/g, '').trim() : '';
+        }
+
+        function renderQrScanError(container, message) {
+            container.innerHTML = `
+                <div class="glass-card rounded-2xl p-5 border border-amber-500/30 bg-gray-900/90 text-xs shadow-lg space-y-3">
+                    <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+                        <span class="text-amber-300 font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> QR Scan Result</span>
+                        <button onclick="clearMedResults()" class="px-2.5 py-1 bg-gray-800 text-gray-300 rounded-lg">Clear Result</button>
+                    </div>
+                    <p class="text-gray-300 leading-relaxed">${escapeHtml(message)}</p>
+                    <p class="text-gray-500">The QR code may have been read, but the response status needs checking. This result does not confirm medicine authenticity.</p>
+                </div>`;
         }
 
         // RENDER KKM GUIDANCE CARD FOR HOLOGRAMS OR DECODING LIMITATIONS
